@@ -1,0 +1,41 @@
+{
+  "export_name": "Gigster Garage Audit Export 20260102",
+  "export_date": "2026-01-02T23:22:00Z",
+  "environment": "development",
+  "version": "1.0.0",
+  "sections": {
+    "runtime": {
+      "files": [
+        "runtime/server_logs.log",
+        "runtime/browser_console.log",
+        "runtime/health_endpoints.json"
+      ],
+      "description": "Server logs, browser console logs, health/version/status endpoint responses"
+    },
+    "database": {
+      "files": [
+        "database/schema_tables.json"
+      ],
+      "description": "Database schema documentation with 38 tables, using Drizzle ORM + PostgreSQL"
+    },
+    "integrations": {
+      "files": [
+        "integrations/configured_secrets.json"
+      ],
+      "description": "Configured secrets and integration status (names only, no values)"
+    },
+    "ux": {
+      "files": [],
+      "description": "UX screenshots captured via screenshot tool - see inline annotations"
+    }
+  },
+  "summary": {
+    "health_status": "ok",
+    "uptime_seconds": 3686,
+    "enabled_integrations": ["database", "ai", "objectStorage", "dth"],
+    "disabled_integrations": ["email", "sms", "stripe", "slack"],
+    "total_tables": 38,
+    "storage_mode": "in-memory (MemStorage)",
+    "auth_method": "session-based with bcrypt"
+  }
+}

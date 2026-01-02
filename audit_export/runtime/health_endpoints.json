@@ -1,0 +1,5 @@
+{
+  "health": {"ok":true,"service":"GigsterGarage","version":"1.0.0","build":{"sha":null,"time":null},"uptimeSeconds":3686,"timestamp":"2026-01-02T23:22:19.669Z"},
+  "version": {"ok":true,"service":"GigsterGarage","version":"1.0.0","build":{"sha":null,"time":null},"uptimeSeconds":3686,"timestamp":"2026-01-02T23:22:20.111Z"},
+  "systemStatus": {"database":true,"ai":true,"email":false,"sms":false,"stripe":false,"objectStorage":true,"slack":false,"dth":true}
+}
