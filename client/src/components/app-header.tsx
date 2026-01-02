@@ -18,6 +18,7 @@ import { MoodPaletteSwitcher } from "@/components/MoodPaletteSwitcher";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { DemoModeIndicator } from "@/components/DemoModeBanner";
+import { openKeyboardShortcuts } from "@/components/KeyboardShortcutsGuide";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
@@ -265,7 +266,7 @@ export function AppHeader() {
                     User Manual
                   </DropdownMenuItem>
                   <DropdownMenuItem 
-                    onClick={() => navigate("/keyboard-shortcuts")}
+                    onClick={() => openKeyboardShortcuts()}
                     className="cursor-pointer"
                     data-testid="help-keyboard-shortcuts"
                   >

@@ -91,14 +91,18 @@ const shortcuts: Shortcut[] = [
   },
 ];
 
+export const KEYBOARD_SHORTCUTS_EVENT = 'open-keyboard-shortcuts';
+
+export function openKeyboardShortcuts() {
+  window.dispatchEvent(new CustomEvent(KEYBOARD_SHORTCUTS_EVENT));
+}
+
 export function KeyboardShortcutsGuide() {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      // Open shortcuts guide with "?"
       if (e.key === "?" && !e.metaKey && !e.ctrlKey) {
-        // Don't trigger if user is typing in an input
         const target = e.target as HTMLElement;
         if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") {
           return;
@@ -108,8 +112,14 @@ export function KeyboardShortcutsGuide() {
       }
     };
 
+    const handleOpenEvent = () => setOpen(true);
+
     document.addEventListener("keydown", down);
-    return () => document.removeEventListener("keydown", down);
+    window.addEventListener(KEYBOARD_SHORTCUTS_EVENT, handleOpenEvent);
+    return () => {
+      document.removeEventListener("keydown", down);
+      window.removeEventListener(KEYBOARD_SHORTCUTS_EVENT, handleOpenEvent);
+    };
   }, []);
 
   return (
