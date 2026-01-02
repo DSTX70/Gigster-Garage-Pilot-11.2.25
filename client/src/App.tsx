@@ -7,9 +7,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { MoodPaletteProvider } from "@/hooks/useMoodPalette";
 import { I18nProvider } from "@/lib/i18n";
 import { DemoModeProvider } from "@/hooks/useDemoMode";
-import { DemoModeBanner } from "@/components/DemoModeBanner";
+import { DemoModeBanner, DemoModeStatusBar, StorageModeBanner } from "@/components/DemoModeBanner";
 import { DemoSessionWarning } from "@/components/DemoSessionWarning";
-import { DemoModeStatusBar } from "@/components/DemoModeBanner";
 import { useEffect, useRef } from "react";
 import Home from "@/pages/home";
 import Landing from "@/pages/landing";
@@ -218,6 +217,7 @@ function AppContent() {
   
   return (
     <>
+      <StorageModeBanner />
       <DemoModeStatusBar />
       <DemoModeBanner />
       <DemoSessionWarning />

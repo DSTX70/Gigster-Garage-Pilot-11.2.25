@@ -1,9 +1,10 @@
 import { useDemoMode } from '@/hooks/useDemoMode';
 import { useDemoGuard } from '@/hooks/useDemoGuard';
+import { useQuery } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Zap, ArrowRight, X } from 'lucide-react';
+import { Clock, Zap, ArrowRight, X, AlertTriangle, Database } from 'lucide-react';
 import { useState } from 'react';
 
 export function DemoModeBanner() {
@@ -150,6 +151,43 @@ export function DemoModeStatusBar() {
           style={{ width: `${progressPercentage}%` }}
         />
       </div>
+    </div>
+  );
+}
+
+// Fix #5: Storage Mode Banner - shows when using in-memory storage
+interface SystemStatus {
+  storageMode: 'postgres' | 'memory';
+  database: boolean;
+}
+
+export function StorageModeBanner() {
+  const { data: systemStatus, isLoading } = useQuery<SystemStatus>({
+    queryKey: ['/api/system/status'],
+    staleTime: 60000,
+    retry: false,
+    queryFn: async () => {
+      const res = await fetch('/api/system/status', { credentials: 'omit' });
+      if (!res.ok) throw new Error('Failed to fetch system status');
+      return res.json();
+    },
+  });
+
+  // Don't show during loading or if using postgres
+  if (isLoading || !systemStatus || systemStatus.storageMode === 'postgres') {
+    return null;
+  }
+
+  return (
+    <div 
+      data-testid="banner-storage-mode"
+      className="bg-amber-500 text-amber-950 px-4 py-2 text-center text-sm font-medium flex items-center justify-center gap-2 sticky top-0 z-50"
+    >
+      <AlertTriangle className="h-4 w-4" />
+      <span>
+        <strong>In-Memory Mode</strong> - Data will not persist after restart. Connect a database for production use.
+      </span>
+      <Database className="h-4 w-4" />
     </div>
   );
 }

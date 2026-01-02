@@ -33,5 +33,15 @@ export default defineConfig({
       strict: true,
       deny: ["**/.*"],
     },
+    // Fix #1: Prevent Vite WebSocket HMR loops in Replit environment
+    hmr: process.env.REPL_ID
+      ? {
+          // Use the Replit domain for HMR WebSocket connection
+          clientPort: 443,
+          protocol: "wss",
+        }
+      : true,
+    // Allow all hosts for Replit proxy
+    allowedHosts: true,
   },
 });

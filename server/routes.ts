@@ -385,6 +385,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ========== HEALTH/VERSION ENDPOINT (PUBLIC, NO AUTH) ==========
   // Track server start time for uptime calculation
   const serverStartTime = Date.now();
+  const serverStartTimeISO = new Date().toISOString();
+  
+  // Build metadata injected at build time (Fix #2: Populate build metadata)
+  const BUILD_SHA = process.env.BUILD_SHA || process.env.COMMIT_SHA || process.env.GIT_SHA || null;
+  const BUILD_TIME = process.env.BUILD_TIME || serverStartTimeISO;
+  
+  // Log build identity on startup for audit trail
+  console.log(`🏗️  Build Identity: sha=${BUILD_SHA || 'dev'}, time=${BUILD_TIME}`);
   
   // Derive version from environment or fallback
   const getAppVersion = (): string => {
@@ -393,6 +401,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       || process.env.GIT_SHA 
       || process.env.npm_package_version 
       || 'dev';
+  };
+  
+  // Fix #5: Determine storage mode for parity enforcement
+  const getStorageMode = (): 'postgres' | 'memory' => {
+    return process.env.DATABASE_URL ? 'postgres' : 'memory';
   };
   
   // GET /api/health - Public health check endpoint
@@ -404,9 +417,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       service: "GigsterGarage",
       version: getAppVersion(),
       build: {
-        sha: process.env.COMMIT_SHA || process.env.GIT_SHA || null,
-        time: process.env.BUILD_TIME || null
+        sha: BUILD_SHA,
+        time: BUILD_TIME
       },
+      storageMode: getStorageMode(),
       uptimeSeconds,
       timestamp: new Date().toISOString()
     });
@@ -421,9 +435,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       service: "GigsterGarage",
       version: getAppVersion(),
       build: {
-        sha: process.env.COMMIT_SHA || process.env.GIT_SHA || null,
-        time: process.env.BUILD_TIME || null
+        sha: BUILD_SHA,
+        time: BUILD_TIME
       },
+      storageMode: getStorageMode(),
       uptimeSeconds,
       timestamp: new Date().toISOString()
     });
@@ -432,6 +447,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GET /api/system/status - Configuration status for all integrations (no secret values)
   app.get("/api/system/status", (req, res) => {
     res.json({
+      storageMode: getStorageMode(),
       database: !!process.env.DATABASE_URL,
       ai: !!(process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY),
       email: !!(process.env.SENDGRID_API_KEY || process.env.SENDGRID_API_KEY_2),
@@ -487,14 +503,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     const recentErrors = getRecentErrors(20);
     const errorStats = getErrorStats();
+    
+    // Fix #3: Get route-level error tracking from performance monitor
+    const performanceMetrics = performanceMonitor.getCurrentMetrics();
+    const routeErrors = performanceMetrics.errors.byEndpoint || {};
+    
+    // Build top failing routes list
+    const topFailingRoutes = Object.entries(routeErrors)
+      .map(([route, count]) => ({ route, errorCount: count as number }))
+      .sort((a, b) => b.errorCount - a.errorCount)
+      .slice(0, 10);
 
     res.json({
       timestamp: new Date().toISOString(),
       uptime: uptimeSeconds,
       nodeVersion: process.version,
+      // Fix #2: Include build metadata in diagnostics
+      build: {
+        sha: BUILD_SHA,
+        time: BUILD_TIME
+      },
+      storageMode: getStorageMode(),
       systemStatus,
       recentErrors,
       errorStats,
+      // Fix #3: Route-level error tracking
+      topFailingRoutes,
+      errorsByStatusCode: performanceMetrics.errors.byStatusCode || {},
+      totalErrorRate: performanceMetrics.throughput.errorRate || 0,
+      // Fix #4: Cache metrics
+      cacheStats: {
+        hitRate: performanceMetrics.cache.hitRate,
+        missRate: performanceMetrics.cache.missRate,
+        evictionRate: performanceMetrics.cache.evictionRate,
+        memoryUsage: performanceMetrics.cache.memoryUsage
+      }
     });
   });
   
