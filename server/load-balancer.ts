@@ -115,29 +115,23 @@ export class LoadBalancer {
   /**
    * Add server instance to load balancer
    */
-  addServer(server: Omit<ServerInstance, 'id'>): string {
+  addServer(server: Pick<ServerInstance, 'host' | 'port' | 'weight' | 'maxConnections'> & Partial<Omit<ServerInstance, 'id' | 'host' | 'port' | 'weight' | 'maxConnections'>>): string {
     const serverId = `srv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
     const serverInstance: ServerInstance = {
       id: serverId,
-      status: 'healthy',
-      currentConnections: 0,
-      lastHealthCheck: Date.now(),
-      responseTime: 0,
-      cpuUsage: 0,
-      memoryUsage: 0,
-      region: 'us-east-1',
-      version: '1.0.0',
-      ...server,
-      // Override defaults with server values if provided
-      status: server.status || 'healthy',
-      currentConnections: server.currentConnections || 0,
-      lastHealthCheck: server.lastHealthCheck || Date.now(),
-      responseTime: server.responseTime || 0,
-      cpuUsage: server.cpuUsage || 0,
-      memoryUsage: server.memoryUsage || 0,
-      region: server.region || 'us-east-1',
-      version: server.version || '1.0.0'
+      host: server.host,
+      port: server.port,
+      weight: server.weight,
+      maxConnections: server.maxConnections,
+      status: server.status ?? 'healthy',
+      currentConnections: server.currentConnections ?? 0,
+      lastHealthCheck: server.lastHealthCheck ?? Date.now(),
+      responseTime: server.responseTime ?? 0,
+      cpuUsage: server.cpuUsage ?? 0,
+      memoryUsage: server.memoryUsage ?? 0,
+      region: server.region ?? 'us-east-1',
+      version: server.version ?? '1.0.0'
     };
 
     this.servers.set(serverId, serverInstance);
@@ -177,8 +171,8 @@ export class LoadBalancer {
       return null;
     }
 
-    let selectedServer: ServerInstance;
-    let reason: string;
+    let selectedServer: ServerInstance | undefined;
+    let reason: string = 'fallback';
 
     // Handle sticky sessions
     if (this.config.stickySession && sessionId) {
@@ -193,7 +187,7 @@ export class LoadBalancer {
     }
 
     // Apply load balancing algorithm if no sticky session
-    if (!selectedServer) {
+    if (selectedServer === undefined) {
       switch (this.config.algorithm) {
         case 'round-robin':
           selectedServer = this.roundRobinSelection(healthyServers);
@@ -293,7 +287,7 @@ export class LoadBalancer {
           id: serverId,
           name: `${server.host}:${server.port}`
         },
-        'info',
+        'success',
         {
           description: `Server health status changed from ${oldStatus} to ${server.status}`,
           metadata: {
@@ -410,7 +404,7 @@ export class LoadBalancer {
 
     await logAuditEvent(
       'system',
-      'infrastructure_change',
+      'system_config',
       'auto_scale_up',
       {
         id: 'system',
@@ -423,7 +417,7 @@ export class LoadBalancer {
         id: 'load-balancer',
         name: 'Load Balancer'
       },
-      'info',
+      'success',
       {
         description: `Auto-scaled up by ${instancesToAdd} instances`,
         metadata: {
@@ -468,7 +462,7 @@ export class LoadBalancer {
 
     await logAuditEvent(
       'system',
-      'infrastructure_change',
+      'system_config',
       'auto_scale_down',
       {
         id: 'system',
@@ -481,7 +475,7 @@ export class LoadBalancer {
         id: 'load-balancer',
         name: 'Load Balancer'
       },
-      'info',
+      'success',
       {
         description: `Auto-scaled down by ${instancesToRemove} instances`,
         metadata: {
