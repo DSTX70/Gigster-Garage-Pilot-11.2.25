@@ -1,6 +1,51 @@
-node_modules
-dist
+# =========================
+# Gigster Garage — Repo Hygiene
+# =========================
+
+# OS / editor
 .DS_Store
-server/public
-vite.config.ts.*
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Node / build outputs
+node_modules/
+dist/
+build/
+coverage/
+.cache/
+.tmp/
+tmp/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Replit transient (keep .replit tracked; ignore caches)
+.replit-cache/
+.replit-logs/
+
+# Bundles / exports / generated artifacts (do not commit)
+exports/
+export_artifacts/
+audit-export/
+chatgpt_audit/
+attached_assets/
+gigster-garage-files/
+
+# Large archives
+*.zip
 *.tar.gz
+*.tgz
+
+# Database exports (keep schema/migrations in code, not exports)
+*data_export*.sql
+*schema_export*.sql
+database_data_export.sql
+database_schema_export.sql
+
+# Optional: keep only real app assets in client/src/assets and public/
+# (Do NOT blanket-ignore all images globally)
