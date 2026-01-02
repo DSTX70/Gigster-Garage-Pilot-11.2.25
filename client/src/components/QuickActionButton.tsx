@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -15,11 +15,39 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useTranslation } from "@/lib/i18n";
 
+export const QUICK_ACTION_EVENT = 'open-quick-actions';
+
+export function openQuickActions() {
+  window.dispatchEvent(new CustomEvent(QUICK_ACTION_EVENT));
+}
+
 export function QuickActionButton() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
+        return;
+      }
+      if (e.key.toLowerCase() === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        setOpen(true);
+      }
+    };
+
+    const handleOpenEvent = () => setOpen(true);
+
+    document.addEventListener("keydown", handleKeyDown);
+    window.addEventListener(QUICK_ACTION_EVENT, handleOpenEvent);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener(QUICK_ACTION_EVENT, handleOpenEvent);
+    };
+  }, []);
 
   const startTimerMutation = useMutation({
     mutationFn: async () => {

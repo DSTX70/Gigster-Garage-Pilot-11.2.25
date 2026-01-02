@@ -288,7 +288,7 @@ export function AppHeader() {
                 <Globe size={16} className="sm:w-[18px] sm:h-[18px] text-white" />
               </Button>
               
-              {/* Keep Message System for notifications */}
+              {/* Message System */}
               <Button
                 variant="ghost"
                 size="sm"
@@ -298,10 +298,6 @@ export function AppHeader() {
                 title={t("messages")}
               >
                 <Mail size={16} className="sm:w-[18px] sm:h-[18px] text-white" />
-                {/* Show badge if there are unread messages */}
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center font-bold">
-                  0
-                </span>
               </Button>
             </div>
           </div>
