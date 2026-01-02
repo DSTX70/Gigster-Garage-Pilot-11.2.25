@@ -30,12 +30,22 @@ export function QuickActionButton() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
-      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
+      const tagName = target.tagName.toUpperCase();
+      const isFormElement = tagName === "INPUT" || tagName === "TEXTAREA" || tagName === "SELECT";
+      const isEditable = target.isContentEditable;
+      const hasRole = target.getAttribute("role") === "textbox" || target.getAttribute("role") === "combobox";
+      
+      if (isFormElement || isEditable || hasRole) {
         return;
       }
+      
       if (e.key.toLowerCase() === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
-        setOpen(true);
+        setOpen(prev => !prev);
+      }
+      
+      if (e.key === "Escape" && open) {
+        setOpen(false);
       }
     };
 
@@ -47,7 +57,7 @@ export function QuickActionButton() {
       document.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener(QUICK_ACTION_EVENT, handleOpenEvent);
     };
-  }, []);
+  }, [open]);
 
   const startTimerMutation = useMutation({
     mutationFn: async () => {
