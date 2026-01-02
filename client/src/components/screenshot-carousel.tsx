@@ -1,35 +1,32 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Play, Pause } from "lucide-react";
-import dashboardImage from "@assets/generated_images/Gigster_Garage_Dashboard_Interface_bf394ced.png";
-import taskFormImage from "@assets/generated_images/Gigster_Garage_Task_Form_5a9a2db0.png";
-import kanbanImage from "@assets/generated_images/Gigster_Garage_Kanban_Board_bca840aa.png";
 
 interface Screenshot {
   id: string;
   title: string;
   description: string;
-  image: string;
+  src: string;
 }
 
-const screenshots: Screenshot[] = [
+const SCREENSHOTS: Screenshot[] = [
   {
     id: "dashboard",
     title: "My Dashboard",
     description: "Your command center — see every spark, track every win, fuel your hustle",
-    image: dashboardImage
+    src: "/screenshots/dashboard.png"
   },
   {
     id: "task-form",
     title: "Task Creation",
     description: "Spark new tasks with precision — deadlines, priorities, and project assignments locked in",
-    image: taskFormImage
+    src: "/screenshots/task-form.png"
   },
   {
     id: "kanban",
     title: "Project Board",
     description: "Drag, drop, dominate — visual project flow that keeps your momentum rolling",
-    image: kanbanImage
+    src: "/screenshots/kanban.png"
   }
 ];
 
@@ -41,7 +38,7 @@ export function ScreenshotCarousel() {
     if (!isAutoPlaying) return;
 
     const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % screenshots.length);
+      setCurrentIndex((prev) => (prev + 1) % SCREENSHOTS.length);
     }, 4000);
 
     return () => clearInterval(interval);
@@ -53,12 +50,12 @@ export function ScreenshotCarousel() {
   };
 
   const goToPrevious = () => {
-    setCurrentIndex((prev) => (prev - 1 + screenshots.length) % screenshots.length);
+    setCurrentIndex((prev) => (prev - 1 + SCREENSHOTS.length) % SCREENSHOTS.length);
     setIsAutoPlaying(false);
   };
 
   const goToNext = () => {
-    setCurrentIndex((prev) => (prev + 1) % screenshots.length);
+    setCurrentIndex((prev) => (prev + 1) % SCREENSHOTS.length);
     setIsAutoPlaying(false);
   };
 
@@ -71,8 +68,8 @@ export function ScreenshotCarousel() {
       {/* Main Image Display */}
       <div className="relative aspect-video bg-gray-100 rounded-xl overflow-hidden shadow-2xl">
         <img
-          src={screenshots[currentIndex].image}
-          alt={screenshots[currentIndex].title}
+          src={SCREENSHOTS[currentIndex].src}
+          alt={SCREENSHOTS[currentIndex].title}
           className="w-full h-full object-cover transition-opacity duration-500"
         />
         
@@ -108,17 +105,17 @@ export function ScreenshotCarousel() {
         {/* Overlay with Info */}
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-6">
           <h3 className="text-white font-bold text-xl mb-1">
-            {screenshots[currentIndex].title}
+            {SCREENSHOTS[currentIndex].title}
           </h3>
           <p className="text-white/90 text-sm">
-            {screenshots[currentIndex].description}
+            {SCREENSHOTS[currentIndex].description}
           </p>
         </div>
       </div>
 
       {/* Thumbnail Navigation */}
       <div className="flex justify-center mt-6 space-x-4">
-        {screenshots.map((screenshot, index) => (
+        {SCREENSHOTS.map((screenshot, index) => (
           <button
             key={screenshot.id}
             onClick={() => goToSlide(index)}
@@ -129,7 +126,7 @@ export function ScreenshotCarousel() {
             }`}
           >
             <img
-              src={screenshot.image}
+              src={screenshot.src}
               alt={screenshot.title}
               className="w-full h-full object-cover"
             />
@@ -142,7 +139,7 @@ export function ScreenshotCarousel() {
 
       {/* Progress Indicators */}
       <div className="flex justify-center mt-4 space-x-2">
-        {screenshots.map((_, index) => (
+        {SCREENSHOTS.map((_, index) => (
           <div
             key={index}
             className={`h-2 rounded-full transition-all ${
