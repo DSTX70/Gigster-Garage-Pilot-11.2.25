@@ -1,0 +1,19 @@
+{
+  "projectKey": "GigsterGarage",
+  "timestamp": "2025-12-24T22:42:19.473Z",
+  "commands_run": [
+    "export_bundle"
+  ],
+  "notes": "export_bundle created a shareable archive.",
+  "releaseNotes": {
+    "path": "RELEASE_NOTES.md"
+  },
+  "mission": {
+    "path": "MISSION.md"
+  },
+  "releaseNotesMode": "sinceTag",
+  "releaseTagPrefix": "i3/GigsterGarage/",
+  "releaseTag": null,
+  "releaseRange": "HEAD~10..HEAD",
+  "releaseHeadSha": "ef06201"
+}

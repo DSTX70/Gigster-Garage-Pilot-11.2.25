@@ -1,0 +1,142 @@
+export type DropFile = { path: string; content: string };
+
+export type ParseResult =
+  | { ok: true; files: DropFile[]; warnings: string[] }
+  | { ok: false; error: string; warnings?: string[] };
+
+const FILE_HEADER_RE = /^FILE:\s+(.+)\s*$/gm;
+
+/**
+ * NEW FORMAT (no backticks):
+ *
+ * FILE: path/to/file.txt
+ * CONTENT:
+ * ...any text...
+ * END_FILE
+ *
+ * You can repeat multiple FILE blocks.
+ */
+function parseContentBlocks(dropText: string): { files: DropFile[]; warnings: string[] } {
+  const warnings: string[] = [];
+  const files: DropFile[] = [];
+
+  const lines = dropText.split(/\r?\n/);
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i] ?? "";
+    const m = line.match(/^FILE:\s+(.+)\s*$/);
+    if (!m) {
+      i += 1;
+      continue;
+    }
+
+    const filePath = (m[1] || "").trim();
+    if (!filePath) {
+      warnings.push("Found FILE: header with empty path; skipping.");
+      i += 1;
+      continue;
+    }
+
+    // Next non-empty line must be CONTENT:
+    i += 1;
+    while (i < lines.length && (lines[i] ?? "").trim() === "") i += 1;
+
+    const contentHeader = (lines[i] ?? "").trim();
+    if (contentHeader !== "CONTENT:") {
+      // Not a content-block style section; stop parsing this style.
+      warnings.push(`FILE: ${filePath} missing CONTENT: line; skipping content-block parse for this file.`);
+      // Move on (do not consume arbitrary lines)
+      continue;
+    }
+
+    i += 1;
+    const buf: string[] = [];
+
+    while (i < lines.length) {
+      const l = lines[i] ?? "";
+      if (l.trim() === "END_FILE") {
+        break;
+      }
+      buf.push(l);
+      i += 1;
+    }
+
+    if (i >= lines.length) {
+      warnings.push(`FILE: ${filePath} missing END_FILE; skipping.`);
+      // break out; no safe boundary
+      break;
+    }
+
+    // consume END_FILE
+    i += 1;
+
+    // Preserve trailing newline behavior similar to fenced parser
+    const content = buf.join("\n") + (buf.length ? "\n" : "");
+    files.push({ path: filePath, content });
+  }
+
+  return { files, warnings };
+}
+
+// Existing fenced parser (unchanged behavior)
+function parseFencedBlocks(dropText: string): { files: DropFile[]; warnings: string[] } {
+  const warnings: string[] = [];
+  const files: DropFile[] = [];
+
+  const headers: Array<{ path: string; startIdx: number; endIdx: number }> = [];
+  let m: RegExpExecArray | null;
+
+  while ((m = FILE_HEADER_RE.exec(dropText)) !== null) {
+    const rawPath = (m[1] || "").trim();
+    if (!rawPath) continue;
+    headers.push({ path: rawPath, startIdx: m.index, endIdx: FILE_HEADER_RE.lastIndex });
+  }
+
+  for (let i = 0; i < headers.length; i++) {
+    const h = headers[i];
+    const nextStart = i + 1 < headers.length ? headers[i + 1].startIdx : dropText.length;
+    const block = dropText.slice(h.endIdx, nextStart);
+
+    const fenceStart = block.indexOf("```");
+    if (fenceStart === -1) {
+      warnings.push(`FILE: ${h.path} has no code fence; skipping.`);
+      continue;
+    }
+    const fenceEnd = block.indexOf("```", fenceStart + 3);
+    if (fenceEnd === -1) {
+      warnings.push(`FILE: ${h.path} unterminated fence; skipped.`);
+      continue;
+    }
+
+    const afterOpen = block.indexOf("\n", fenceStart);
+    if (afterOpen === -1) {
+      warnings.push(`FILE: ${h.path} malformed opening fence; skipped.`);
+      continue;
+    }
+
+    const content = block.slice(afterOpen + 1, fenceEnd);
+    files.push({ path: h.path.trim(), content });
+  }
+
+  return { files, warnings };
+}
+
+export function parseDropText(dropText: string): ParseResult {
+  if (!dropText || !dropText.trim()) return { ok: false, error: "Empty drop text." };
+
+  // Prefer CONTENT:/END_FILE format if present anywhere
+  if (dropText.includes("\nCONTENT:") || dropText.trim().startsWith("CONTENT:") || dropText.includes("\nEND_FILE")) {
+    const { files, warnings } = parseContentBlocks(dropText);
+    if (files.length > 0) return { ok: true, files, warnings };
+    // fall through to fenced parser if content blocks weren't valid
+    const fenced = parseFencedBlocks(dropText);
+    if (fenced.files.length > 0) return { ok: true, files: fenced.files, warnings: [...warnings, ...fenced.warnings] };
+    return { ok: false, error: "No valid FILE blocks parsed.", warnings: [...warnings, ...fenced.warnings] };
+  }
+
+  // Default: fenced format
+  const fenced = parseFencedBlocks(dropText);
+  if (fenced.files.length === 0) return { ok: false, error: "No valid FILE blocks parsed.", warnings: fenced.warnings };
+  return { ok: true, files: fenced.files, warnings: fenced.warnings };
+}

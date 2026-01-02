@@ -1,0 +1,218 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Rollback for scripts/drop_sprint_day1.sh
+# Modes:
+#   A) --delete-branches
+#   B) --revert-on <branch> [--push]
+#   C) --restore-files [--from <ref>] [--subset <glob>] [--push]
+#   D) --preview-diff [--from <ref>] [--subset <glob>]
+# Common:
+#   --dry-run
+
+DRY_RUN=0
+DO_DELETE=0
+DO_REVERT=0
+DO_RESTORE=0
+DO_PREVIEW=0
+PUSH=0
+TARGET_BRANCH=""
+RESTORE_REF="HEAD^"
+RESTORE_SUBSET=""
+
+BRANCHES=(
+  "feature/social-platform-adapters"
+  "feature/loyalty-ui-rules"
+  "feat/social-worker-scale"
+  "ops/alerts-social-queue"
+  "feature/rfp-drafts-e2e"
+  "chore/brand-voice-pass"
+  "feat/sso-org-binding"
+  "feature/pricing-and-fences"
+  "gtm/launch-pack"
+  "ip/provisional-snapshot"
+)
+
+FILES=(
+  "server/integrations/platforms/common.ts"
+  "server/integrations/platforms/x.adapter.ts"
+  "server/integrations/platforms/instagram.adapter.ts"
+  "server/integrations/platforms/linkedin.adapter.ts"
+  "server/integrations/icadence/platforms.ts"
+  ".env.example"
+  "server/routes/loyalty.route.ts"
+  "client/src/pages/loyalty/index.tsx"
+  "worker/launcher.ts"
+  "worker/socialPoster.ts"
+  "server/ops/alerts/socialQueue.metrics.ts"
+  "server/ops/alerts/socialQueue.alerts.ts"
+  "server/db/migrations/2025_11_06_proposals.sql"
+  "server/integrations/rfp/draft.service.ts"
+  "server/integrations/rfp/adapter.ts"
+  "client/src/pages/rfp/ingest.tsx"
+  "scripts/brand_token_audit.ts"
+  "client/src/pages/auth/org-bind.tsx"
+  "server/middleware/entitlements.ts"
+  "client/src/pages/pricing.tsx"
+  "docs/gtm/launch_pack.md"
+  "docs/ip/provisional_snapshot.md"
+)
+
+COMMIT_GREP_PREFIXES=(
+  "^GG-101:" "^GG-102:" "^GG-103:" "^GG-104:" "^GG-105:"
+  "^GG-106:" "^GG-107:" "^GG-108:" "^GG-109:" "^GG-110:"
+)
+
+usage() {
+  cat <<EOF
+Usage:
+  $(basename "$0") --delete-branches [--dry-run]
+  $(basename "$0") --revert-on <branch> [--push] [--dry-run]
+  $(basename "$0") --restore-files [--from <ref>] [--subset <glob>] [--push] [--dry-run]
+  $(basename "$0") --preview-diff [--from <ref>] [--subset <glob>]
+
+Examples:
+  # A) Delete unmerged feature branches locally
+  $(basename "$0") --delete-branches
+
+  # B) Revert Day-1 commits on main and push
+  $(basename "$0") --revert-on main --push
+
+  # C) Restore only Day-1 files from HEAD^ and commit on a new branch
+  $(basename "$0") --restore-files
+
+  # C) Restore only adapters from a specific commit and push
+  $(basename "$0") --restore-files --from abc1234 --subset "server/integrations/platforms/*" --push
+
+  # D) Preview differences against HEAD^ (no changes)
+  $(basename "$0") --preview-diff
+
+  # D) Preview diffs for adapters only against a tag
+  $(basename "$0") --preview-diff --from v1.2.3 --subset "server/integrations/platforms/*"
+EOF
+}
+
+need_git_repo() { git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "Run inside a git repo."; exit 1; }; }
+arg_err() { echo "Error: $1"; echo; usage; exit 1; }
+run() { if [[ $DRY_RUN -eq 1 ]]; then echo "DRY-RUN: $*"; else eval "$@"; fi }
+
+# Parse args
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --delete-branches) DO_DELETE=1; shift ;;
+    --revert-on)       DO_REVERT=1; TARGET_BRANCH="${2:-}"; shift 2 ;;
+    --restore-files)   DO_RESTORE=1; shift ;;
+    --preview-diff)    DO_PREVIEW=1; shift ;;
+    --from)            RESTORE_REF="${2:-}"; shift 2 ;;
+    --subset)          RESTORE_SUBSET="${2:-}"; shift 2 ;;
+    --push)            PUSH=1; shift ;;
+    --dry-run)         DRY_RUN=1; shift ;;
+    -h|--help)         usage; exit 0 ;;
+    *) arg_err "Unknown arg: $1" ;;
+  esac
+done
+
+need_git_repo
+
+if [[ $DO_DELETE -eq 0 && $DO_REVERT -eq 0 && $DO_RESTORE -eq 0 && $DO_PREVIEW -eq 0 ]]; then
+  arg_err "Pick a mode: --delete-branches OR --revert-on <branch> OR --restore-files OR --preview-diff"
+fi
+if [[ $DO_REVERT -eq 1 && -z "$TARGET_BRANCH" ]]; then arg_err "--revert-on requires a branch name"; fi
+
+# Helper: build restore list (optionally subset)
+build_list() {
+  local arr=()
+  if [[ -n "$RESTORE_SUBSET" ]]; then
+    for f in "${FILES[@]}"; do case "$f" in $RESTORE_SUBSET) arr+=("$f");; esac; done
+  else
+    arr=("${FILES[@]}")
+  fi
+  printf '%s\n' "${arr[@]}"
+}
+
+# Mode A: delete branches
+if [[ $DO_DELETE -eq 1 ]]; then
+  echo "==> Deleting Day-1 feature branches (local) ..."
+  for b in "${BRANCHES[@]}"; do
+    if git show-ref --verify --quiet "refs/heads/$b"; then
+      CURRENT=$(git rev-parse --abbrev-ref HEAD)
+      [[ "$CURRENT" == "$b" ]] && { echo "  - Skipping '$b' (currently checked out)."; continue; }
+      run "git branch -D '$b'"
+    else
+      echo "  - Branch '$b' not found; skipping."
+    fi
+  done
+  echo "Done."
+fi
+
+# Mode B: revert commits
+if [[ $DO_REVERT -eq 1 ]]; then
+  echo "==> Reverting Day-1 commits on '$TARGET_BRANCH' ..."
+  if ! git show-ref --verify --quiet "refs/heads/$TARGET_BRANCH"; then
+    if git show-ref --verify --quiet "refs/remotes/origin/$TARGET_BRANCH"; then
+      run "git checkout -b '$TARGET_BRANCH' origin/$TARGET_BRANCH"
+    else
+      arg_err "Branch '$TARGET_BRANCH' not found."
+    fi
+  fi
+  [[ "$(git rev-parse --abbrev-ref HEAD)" != "$TARGET_BRANCH" ]] && run "git checkout '$TARGET_BRANCH'"
+
+  mapfile -t SHAS < <(git log --pretty=format:%H --grep="$(IFS=\|; echo "${COMMIT_GREP_PREFIXES[*]}")" --regexp-ignore-case)
+  if [[ ${#SHAS[@]} -eq 0 ]]; then
+    echo "  - No matching commits."
+  else
+    mapfile -t SHAS_CHRONO < <(for s in "${SHAS[@]}"; do echo "$s"; done | tac)
+    for sha in "${SHAS_CHRONO[@]}"; do
+      echo "  * Reverting $(git log -1 --pretty=%s "$sha")"
+      run "git revert --no-edit '$sha'"
+    done
+    [[ $PUSH -eq 1 ]] && run "git push origin '$TARGET_BRANCH'" || echo "  - Review & push: git push origin '$TARGET_BRANCH'"
+  fi
+fi
+
+# Mode D: preview diff
+if [[ $DO_PREVIEW -eq 1 ]]; then
+  echo "==> Preview diff for Day-1 files vs ref: ${RESTORE_REF}"
+  mapfile -t LIST < <(build_list)
+  if [[ ${#LIST[@]} -eq 0 ]]; then echo "  - No files matched subset."; exit 1; fi
+  # Show a combined diff for existing paths in ref
+  ANY=0
+  for f in "${LIST[@]}"; do
+    if git cat-file -e "${RESTORE_REF}:${f}" 2>/dev/null; then ANY=1; fi
+  done
+  if [[ $ANY -eq 0 ]]; then
+    echo "  - None of the Day-1 files exist at ${RESTORE_REF} (check --from)."
+  else
+    git diff "${RESTORE_REF}" -- "${LIST[@]}"
+  fi
+  exit 0
+fi
+
+# Mode C: restore files
+if [[ $DO_RESTORE -eq 1 ]]; then
+  echo "==> Restoring Day-1 files from ref: ${RESTORE_REF}"
+  mapfile -t RESTORE_LIST < <(build_list)
+  [[ ${#RESTORE_LIST[@]} -eq 0 ]] && { echo "  - No files matched subset."; exit 1; }
+
+  SAFE_BRANCH="rollback-files-$(date +%Y%m%d-%H%M%S)"
+  run "git checkout -b '$SAFE_BRANCH'"
+
+  for f in "${RESTORE_LIST[@]}"; do
+    if git cat-file -e "${RESTORE_REF}:${f}" 2>/dev/null; then
+      run "git restore --source '${RESTORE_REF}' -- '${f}'"
+      run "git add '${f}'"
+    else
+      echo "  - Skipping (not in ${RESTORE_REF}): ${f}"
+    fi
+  done
+
+  if ! git diff --cached --quiet; then
+    run "git commit -m 'rollback: restore Day-1 files from ${RESTORE_REF}${RESTORE_SUBSET:+ (subset: }${RESTORE_SUBSET}${RESTORE_SUBSET:+)}'"
+    [[ $PUSH -eq 1 ]] && run "git push -u origin '$SAFE_BRANCH'"
+    echo "  - Restore committed on branch: $SAFE_BRANCH"
+  else
+    echo "  - No changes to commit."
+  fi
+fi
+
+echo "✅ Rollback complete."

@@ -1,0 +1,172 @@
+## REPLIT DROP — Clean SHIP SUMMARY + VERBOSE flag (v1.0)
+
+**Apply to repos:** ✅ **GigsterGarage** + ✅ **DreamTeamHub**
+**Goal:** Print a clean **SHIP SUMMARY** at the end and hide the huge publish JSON unless `VERBOSE=1`.
+
+### VERSIONING
+
+* Patch: `i3_ship_publish_summary_verbose_v1_0`
+* Date: 2025-12-23
+* Mode: overwrite this script (behavior-compatible)
+
+### CHANGE_LOG
+
+* Add `VERBOSE=1` flag to print raw publish JSON
+* Always print a concise SHIP SUMMARY block (project, bundle, sha, receipt link if available, history link)
+* Keep post-verify enforcement intact
+
+---
+
+### FILE: tools/ship_publish.sh
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+# i³ Step 4 Publisher Pack — ship_publish.sh
+# gate → export → publish → post-verify → summary
+#
+# VERBOSE=1 will print raw publish JSON.
+
+: "${PROJECT_KEY:?Missing PROJECT_KEY}"
+: "${DRIVE_STEWARD_URL:?Missing DRIVE_STEWARD_URL}"
+: "${DRIVE_STEWARD_TOKEN:?Missing DRIVE_STEWARD_TOKEN}"
+
+BASE="${DRIVE_STEWARD_URL%/}"
+VERBOSE="${VERBOSE:-0}"
+
+echo "SHIP: start"
+echo "CMD: bash tools/ship_publish.sh"
+echo ""
+
+echo "SHIP PUBLISH: ${PROJECT_KEY}"
+echo "CI GATE: export bundle (no publish)"
+bash tools/ci_gate.sh
+
+echo "Build bundle"
+EXPORT_JSON="$(tsx tools/export_bundle.ts)"
+
+# Extract fields defensively (different repos may return bundlePath or tarPath)
+BUNDLE_PATH="$(
+  echo "$EXPORT_JSON" | node -e "
+    let s=''; process.stdin.on('data',d=>s+=d).on('end',()=>{
+      const j=JSON.parse(s);
+      const p=j.bundlePath || j.tarPath || '';
+      process.stdout.write(p);
+    });
+  "
+)"
+
+SHA256="$(
+  echo "$EXPORT_JSON" | node -e "
+    let s=''; process.stdin.on('data',d=>s+=d).on('end',()=>{
+      const j=JSON.parse(s);
+      const h=j.sha256 || j.sha || '';
+      process.stdout.write(h);
+    });
+  "
+)"
+
+BUNDLE_NAME="$(basename "$BUNDLE_PATH" 2>/dev/null || true)"
+
+if [ -z "${BUNDLE_PATH}" ] || [ -z "${SHA256}" ]; then
+  echo "SHIP_PUBLISH: FAIL — export_bundle.ts did not return bundlePath/tarPath + sha256"
+  echo "$EXPORT_JSON"
+  exit 1
+fi
+
+export SHA256
+export EXPECTED_SHA256="${SHA256}"
+
+echo ""
+echo "CI GATE PASS ✅"
+echo "Publishing to Drive Steward: ${BASE}/api/exports/push"
+
+PUBLISH_JSON="$(tsx tools/publish_drive_steward.ts "$BUNDLE_PATH" || true)"
+
+# If publish script returned nothing (or crashed), fail loudly
+if [ -z "${PUBLISH_JSON}" ]; then
+  echo "FAIL ❌ Publish failed: empty response"
+  exit 1
+fi
+
+# Try to detect publish failure by checking for a top-level ok:false or obvious HTML error
+if echo "$PUBLISH_JSON" | head -c 200 | grep -qi "<!doctype html\|<html"; then
+  echo "FAIL ❌ Publish failed (HTML response)"
+  echo "$PUBLISH_JSON" | head -n 60
+  exit 1
+fi
+
+if echo "$PUBLISH_JSON" | grep -q '"ok"[[:space:]]*:[[:space:]]*false'; then
+  echo "FAIL ❌ Publish failed (ok:false)"
+  [ "$VERBOSE" = "1" ] && echo "$PUBLISH_JSON"
+  exit 1
+fi
+
+# Parse receipt link if present (supports multiple shapes)
+RECEIPT_LINK="$(
+  echo "$PUBLISH_JSON" | node -e "
+    let s=''; process.stdin.on('data',d=>s+=d).on('end',()=>{
+      try{
+        const j=JSON.parse(s);
+        const r =
+          j.receipt?.webViewLink ||
+          j.response?.receipt?.webViewLink ||
+          j.response?.webViewLink ||
+          j.webViewLink ||
+          '';
+        process.stdout.write(r);
+      }catch(e){
+        process.stdout.write('');
+      }
+    });
+  " || true
+)"
+
+if [ "$VERBOSE" = "1" ]; then
+  echo "$PUBLISH_JSON"
+else
+  echo "✅ Published ${BUNDLE_NAME} (${SHA256}) to Drive Steward via /api/exports/push"
+  if [ -n "$RECEIPT_LINK" ]; then
+    echo "Receipt: ${RECEIPT_LINK}"
+  fi
+fi
+
+echo ""
+echo "Post-verify: enforcing history inclusion (EXPECTED_SHA256=${EXPECTED_SHA256:0:12}...)"
+bash tools/post_verify_history.sh
+
+HISTORY_URL="${BASE}/api/exports/history?projectKey=${PROJECT_KEY}&limit=10"
+
+echo ""
+echo "SHIP SUMMARY"
+echo "Project: ${PROJECT_KEY}"
+echo "Bundle:  ${BUNDLE_NAME}"
+echo "SHA256:  ${SHA256}"
+if [ -n "$RECEIPT_LINK" ]; then
+  echo "Receipt: ${RECEIPT_LINK}"
+fi
+echo "History: ${HISTORY_URL}"
+echo "Post-verify: ✅ SHA found in Drive Steward history."
+echo "SHIP: done (exit=0)"
+```
+
+---
+
+### How to use
+
+* Normal (clean output):
+
+```bash
+bash tools/ship_publish.sh
+```
+
+* Verbose (prints full publish JSON):
+
+```bash
+VERBOSE=1 bash tools/ship_publish.sh
+```
+
+---
+
+If you want, I can also patch VSuiteHQ’s Remote Ship UI to include a **“Verbose”** checkbox that sets `VERBOSE=1` when it triggers `/api/i3/drop/ship`.
