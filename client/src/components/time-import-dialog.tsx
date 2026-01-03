@@ -89,16 +89,21 @@ export function TimeImportDialog({ open, onOpenChange, onImport, projectId }: Ti
     return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
   };
 
-  const formatHours = (seconds: number): number => {
-    return Math.round((seconds / 3600) * 100) / 100;
+  const formatMinutes = (seconds: number): number => {
+    return Math.round((seconds / 60) * 100) / 100;
   };
 
   const calculateTotals = () => {
     const selectedLogsArray = uninvoicedLogs.filter(log => selectedLogs.has(log.id));
     const totalSeconds = selectedLogsArray.reduce((sum, log) => sum + (parseInt(log.duration || "0", 10)), 0);
-    const totalHours = totalSeconds / 3600;
-    const totalAmount = totalHours * hourlyRate;
-    return { totalHours: Math.round(totalHours * 100) / 100, totalAmount: Math.round(totalAmount * 100) / 100 };
+    // Calculate using minutes as the unit: minutes × per-minute-rate
+    const totalMinutes = totalSeconds / 60;
+    const perMinuteRate = hourlyRate / 60;
+    const totalAmount = totalMinutes * perMinuteRate;
+    return { 
+      totalMinutes: Math.round(totalMinutes * 100) / 100, 
+      totalAmount: Math.round(totalAmount * 100) / 100 
+    };
   };
 
   const handleImport = () => {
@@ -207,8 +212,9 @@ export function TimeImportDialog({ open, onOpenChange, onImport, projectId }: Ti
               ) : (
                 <div className="space-y-3">
                   {uninvoicedLogs.map((log) => {
-                    const hours = formatHours(parseInt(log.duration || "0", 10));
-                    const amount = hours * hourlyRate;
+                    const minutes = formatMinutes(parseInt(log.duration || "0", 10));
+                    const perMinuteRate = hourlyRate / 60;
+                    const amount = minutes * perMinuteRate;
                     
                     return (
                       <div
@@ -256,7 +262,7 @@ export function TimeImportDialog({ open, onOpenChange, onImport, projectId }: Ti
                             {formatDuration(parseInt(log.duration || "0", 10))}
                           </Badge>
                           <p className="text-sm font-medium">${amount.toFixed(2)}</p>
-                          <p className="text-xs text-muted-foreground">{hours} hrs × ${hourlyRate}</p>
+                          <p className="text-xs text-muted-foreground">{minutes} min × ${perMinuteRate.toFixed(4)}/min</p>
                         </div>
                       </div>
                     );
@@ -276,8 +282,8 @@ export function TimeImportDialog({ open, onOpenChange, onImport, projectId }: Ti
                   <p className="text-2xl font-bold text-blue-900">{selectedLogs.size}</p>
                 </div>
                 <div>
-                  <p className="text-blue-700">Total Hours</p>
-                  <p className="text-2xl font-bold text-blue-900">{totals.totalHours}</p>
+                  <p className="text-blue-700">Total Minutes</p>
+                  <p className="text-2xl font-bold text-blue-900">{totals.totalMinutes}</p>
                 </div>
                 <div>
                   <p className="text-blue-700">Total Amount</p>

@@ -126,27 +126,33 @@ export default function CreateInvoice() {
 
   // Handle time import from timesheet
   const handleTimeImport = (selectedLogs: TimeLog[], hourlyRate: number) => {
-    // Convert time logs to line items
+    // Convert time logs to line items using MINUTES as the unit
+    // Formula: minutes × per-minute-rate = total amount
+    const perMinuteRate = hourlyRate / 60;
+    
     const newLineItems = selectedLogs.map((log, index) => {
-      // Calculate hours from duration, or compute from start/end times as fallback
-      let hours = 0;
+      // Calculate minutes from duration, or compute from start/end times as fallback
+      let minutes = 0;
       if (log.duration && parseInt(log.duration, 10) > 0) {
-        hours = Math.round((parseInt(log.duration, 10) / 3600) * 100) / 100;
+        // Use full precision - seconds converted to minutes (including fractions)
+        minutes = parseInt(log.duration, 10) / 60;
       } else if (log.startTime && log.endTime) {
         // Calculate duration from timestamps
         const start = new Date(log.startTime).getTime();
         const end = new Date(log.endTime).getTime();
-        const durationSeconds = Math.floor((end - start) / 1000);
-        hours = Math.round((durationSeconds / 3600) * 100) / 100;
+        const durationSeconds = (end - start) / 1000;
+        minutes = durationSeconds / 60;
       }
       
-      const amount = hours * hourlyRate;
+      // Round minutes to 2 decimals for display, but use full precision for amount
+      const displayMinutes = Math.round(minutes * 100) / 100;
+      const amount = minutes * perMinuteRate;
       
       return {
         id: Math.max(...lineItems.map(item => item.id), 0) + index + 1,
-        description: log.description,
-        quantity: hours,
-        rate: hourlyRate,
+        description: `${log.description} (${displayMinutes} min)`,
+        quantity: displayMinutes,
+        rate: Math.round(perMinuteRate * 10000) / 10000, // 4 decimal precision for per-minute rate
         amount: Math.round(amount * 100) / 100
       };
     });
