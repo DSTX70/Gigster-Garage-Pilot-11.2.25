@@ -17,6 +17,7 @@ import { taskSchema, insertTaskSchema, insertProjectSchema, insertTemplateSchema
 import { calculateInvoiceTotals, validateInvoiceTotals, calculateBalanceDue } from "./utils/invoice-calculations";
 import { saveToFilingCabinet, fetchFromFilingCabinet } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
+import { ObjectStorageService, ObjectNotFoundError, parseObjectPath, objectStorageClient } from "./ObjectStorageService";
 import type { User } from "@shared/schema";
 import OpenAI from "openai";
 import { invoiceStatusService } from "./invoiceStatusService";
