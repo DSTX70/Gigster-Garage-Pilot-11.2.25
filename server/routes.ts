@@ -4237,7 +4237,18 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
   // Create draft invoice
   app.post("/api/invoices", requireAuth, async (req, res) => {
     try {
-      const invoiceData = insertInvoiceSchema.parse(req.body);
+      // Filter out empty line items before validation (quantity 0 or missing description)
+      const bodyToValidate = { ...req.body };
+      if (Array.isArray(bodyToValidate.lineItems)) {
+        bodyToValidate.lineItems = bodyToValidate.lineItems.filter((item: any) => 
+          item && 
+          item.quantity > 0 && 
+          item.description && 
+          item.description.trim() !== ''
+        );
+      }
+      
+      const invoiceData = insertInvoiceSchema.parse(bodyToValidate);
       
       // Sanitize foreign key fields to prevent empty string constraint violations
       const normalizedInvoiceData = sanitizeForeignKeys(invoiceData, ['projectId', 'clientId', 'proposalId']);
