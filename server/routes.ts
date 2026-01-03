@@ -2408,6 +2408,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Approve or reject time log
+  app.post("/api/timelogs/:id/approve", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status, approvalStatus } = req.body;
+      const newStatus = status || approvalStatus;
+
+      if (!newStatus || !["approved", "rejected"].includes(newStatus)) {
+        return res.status(400).json({ message: "Invalid status. Must be 'approved' or 'rejected'" });
+      }
+
+      const timeLog = await storage.getTimeLog(id);
+      if (!timeLog) {
+        return res.status(404).json({ message: "Time log not found" });
+      }
+
+      const updatedTimeLog = await storage.updateTimeLog(id, {
+        approvalStatus: newStatus,
+      });
+
+      res.json(updatedTimeLog);
+    } catch (error) {
+      console.error("Error approving/rejecting time log:", error);
+      res.status(500).json({ message: "Failed to update time log status" });
+    }
+  });
+
   // Template routes
   app.get("/api/templates", requireAuth, async (req, res) => {
     try {
