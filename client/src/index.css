@@ -5,10 +5,15 @@
 @tailwind utilities;
 
 :root {
+  /* === CANONICAL BRAND TOKENS (Today Workspace Spec) === */
+  --brand-navy: #0B1D3A;   /* Selected/active states, filter pills, toggles, nav */
+  --brand-mint: #2EC5C2;   /* Primary actions, progress bars, completed states */
+  --brand-amber: #FFB52E;  /* Reserved for Due Soon warnings ONLY */
+  
   /* Enhanced Brand System - Style Refresh */
-  --brand:#0B1D3A; /* Navy */
-  --accent:#2EC5C2; /* Mint */
-  --signal:#FFB52E; /* Amber */
+  --brand: var(--brand-navy);
+  --accent: var(--brand-mint);
+  --signal: var(--brand-amber);
 
   /* Neutrals (light) */
   --bg:#F7F8FA;
@@ -50,7 +55,6 @@
   --brand-teal: var(--gg-teal);
   --brand-teal-tint: var(--gg-teal-tint);
   --brand-blue-tint: var(--gg-blue-tint);
-  --brand-amber: var(--gg-amber);
   --brand-amber-tint: var(--gg-amber-tint);
   
   /* Legacy colors for backward compatibility */

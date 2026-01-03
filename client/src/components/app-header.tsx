@@ -141,165 +141,115 @@ export function AppHeader() {
   const reminderCount = getReminderCount();
 
   return (
-    <header className="gg-header border-b sticky top-0 z-50 shadow-lg">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
-        <div className="flex flex-col space-y-3 sm:space-y-4">
-          {/* Top line: Shield + Logo + Tagline + Timer */}
-          <div className="flex items-center justify-center">
-            <div className="flex items-center space-x-2 sm:space-x-3">
-              <GigsterLogo size="small" showText={false} />
-              <h1 className="text-lg sm:text-xl font-bold text-white" style={{ fontFamily: 'var(--font-display)' }}>
-                Gigster Garage
-              </h1>
-              
-              {/* Active Timer Display */}
-              {activeTimer && activeTimer.isActive && (
-                <>
-                  <span style={{ color: 'var(--brand-amber-tint)' }} className="font-medium">|</span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleStopTimer}
-                    disabled={stopTimerMutation.isPending}
-                    className="flex items-center space-x-1 sm:space-x-2 bg-white/20 backdrop-blur-sm rounded-lg px-2 py-1 hover:bg-white/30 transition-colors"
-                    title="Click to stop timer"
-                  >
-                    <Clock size={14} className="text-white animate-pulse" />
-                    <span className="text-sm sm:text-base font-bold text-white" style={{ fontFamily: 'monospace' }}>
-                      {formatDuration(currentTime)}
-                    </span>
-                    <span className="text-xs text-white/80 hidden sm:inline">
-                      {activeTimer.description || "Working"}
-                    </span>
-                  </Button>
-                </>
-              )}
-              
-              <span style={{ color: 'var(--brand-amber-tint)' }} className="font-medium hidden sm:inline">|</span>
-              <p className="text-xs sm:text-sm font-medium hidden sm:block" style={{ color: 'var(--brand-amber-tint)' }}>{t("tagline")}</p>
-            </div>
-          </div>
-
-          {/* Middle line: Search */}
-          <div className="flex justify-center px-2">
-            <div className="w-full max-w-md">
+    <header className="gg-header border-b sticky top-0 z-50 shadow-md">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-2 sm:py-3">
+        <div className="flex items-center justify-between gap-3">
+          {/* Left: Logo + Search */}
+          <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+            <Link href="/">
+              <div className="flex items-center gap-2 cursor-pointer">
+                <GigsterLogo size="small" showText={false} />
+                <span className="text-base sm:text-lg font-bold text-white hidden sm:inline" style={{ fontFamily: 'var(--font-display)' }}>
+                  Gigster Garage
+                </span>
+              </div>
+            </Link>
+            
+            {/* Active Timer Display (compact) */}
+            {activeTimer && activeTimer.isActive && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleStopTimer}
+                disabled={stopTimerMutation.isPending}
+                className="flex items-center gap-1.5 bg-white/20 backdrop-blur-sm rounded-lg px-2 py-1 hover:bg-white/30 transition-colors"
+                title="Click to stop timer"
+              >
+                <Clock size={14} className="text-white animate-pulse" />
+                <span className="text-sm font-bold text-white" style={{ fontFamily: 'monospace' }}>
+                  {formatDuration(currentTime)}
+                </span>
+              </Button>
+            )}
+            
+            {/* Search - centered and prominent */}
+            <div className="flex-1 max-w-md hidden sm:block">
               <GlobalSearch className="w-full" />
             </div>
           </div>
           
-          {/* Bottom line: User + Messages */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 sm:space-x-3 text-xs sm:text-sm text-white/80">
-              <User size={14} className="sm:w-4 sm:h-4 text-white" />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => logoutMutation.mutate()}
-                disabled={logoutMutation.isPending}
-                className="text-white hover:bg-white/10 font-medium p-1 h-auto text-xs sm:text-sm"
-              >
-                {user?.name}
-              </Button>
-              {user?.role === 'admin' && (
-                <span className="bg-white/20 text-white px-1.5 sm:px-2 py-0.5 rounded-full text-xs font-medium border border-white/30">
-                  {t("admin")}
-                </span>
-              )}
+          {/* Right: Compact utilities */}
+          <div className="flex items-center gap-1 sm:gap-2">
+            {/* Mobile Search */}
+            <div className="sm:hidden">
+              <GlobalSearch className="w-full" />
             </div>
+            
+            {/* Navigation Menu */}
+            <NavigationMenu />
             
             {/* Demo Mode Indicator */}
             <DemoModeIndicator />
             
-            <div className="flex items-center space-x-2 sm:space-x-3">
-              {/* Home Button - Keep for quick access */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate("/")}
-                className="text-white hover:bg-white/10 relative p-1.5 sm:p-2"
-                data-testid="button-home"
-                title={t("dashboard")}
-              >
-                <Home size={16} className="sm:w-[18px] sm:h-[18px] text-white" />
-              </Button>
-
-              {/* Quick Access Tasks Button */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate("/tasks")}
-                className="text-white hover:bg-white/10 relative p-1.5 sm:p-2"
-                data-testid="button-tasks"
-                title={t("tasks")}
-              >
-                <CheckCheck size={16} className="sm:w-[18px] sm:h-[18px] text-white" />
-              </Button>
-
-              {/* Organized Navigation Menu - Replaces all the scattered buttons */}
-              <NavigationMenu />
-              
-              {/* Mood Palette Switcher */}
-              <MoodPaletteSwitcher size="sm" className="text-white border-white/20 hover:bg-white/10" />
-              
-              {/* Help Menu */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-white hover:bg-white/10 relative p-1.5 sm:p-2"
-                    data-testid="button-help"
-                    title="Help"
-                  >
-                    <HelpCircle size={16} className="sm:w-[18px] sm:h-[18px] text-white" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuLabel>Help & Support</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem 
-                    onClick={() => navigate("/user-manual")}
-                    className="cursor-pointer"
-                    data-testid="help-user-manual"
-                  >
-                    <BookOpen size={16} className="mr-2" />
-                    User Manual
-                  </DropdownMenuItem>
-                  <DropdownMenuItem 
-                    onClick={() => openKeyboardShortcuts()}
-                    className="cursor-pointer"
-                    data-testid="help-keyboard-shortcuts"
-                  >
-                    <Keyboard size={16} className="mr-2" />
-                    Keyboard Shortcuts
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              
-              {/* Settings/Language Button */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate("/settings")}
-                className="text-white hover:bg-white/10 relative p-1.5 sm:p-2"
-                data-testid="button-settings"
-                title={t("settings")}
-              >
-                <Globe size={16} className="sm:w-[18px] sm:h-[18px] text-white" />
-              </Button>
-              
-              {/* Message System */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate("/messages")}
-                className="text-white hover:bg-white/10 relative p-1.5 sm:p-2"
-                data-testid="button-messages"
-                title={t("messages")}
-              >
-                <Mail size={16} className="sm:w-[18px] sm:h-[18px] text-white" />
-              </Button>
-            </div>
+            {/* User Menu with Admin Badge inside */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-white hover:bg-white/10 relative p-1.5 sm:p-2"
+                  data-testid="button-user-menu"
+                  title="Account"
+                >
+                  <User size={16} className="sm:w-[18px] sm:h-[18px] text-white" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel className="flex items-center gap-2">
+                  <span>{user?.name}</span>
+                  {user?.role === 'admin' && (
+                    <span className="bg-[#0B1D3A] text-white px-1.5 py-0.5 rounded text-xs font-medium">
+                      {t("admin")}
+                    </span>
+                  )}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  onClick={() => navigate("/settings")}
+                  className="cursor-pointer"
+                  data-testid="menu-settings"
+                >
+                  <Settings size={16} className="mr-2" />
+                  {t("settings")}
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => navigate("/user-manual")}
+                  className="cursor-pointer"
+                  data-testid="menu-user-manual"
+                >
+                  <BookOpen size={16} className="mr-2" />
+                  User Manual
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => openKeyboardShortcuts()}
+                  className="cursor-pointer"
+                  data-testid="menu-keyboard-shortcuts"
+                >
+                  <Keyboard size={16} className="mr-2" />
+                  Keyboard Shortcuts
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  onClick={() => logoutMutation.mutate()}
+                  disabled={logoutMutation.isPending}
+                  className="cursor-pointer text-red-600"
+                  data-testid="menu-logout"
+                >
+                  <LogOut size={16} className="mr-2" />
+                  {t("logout")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>
