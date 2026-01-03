@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,14 +7,43 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { AppHeader } from "@/components/app-header";
 import { PaymentTracker } from "@/components/payment-tracker";
-import { ArrowLeft, Download, Send, Edit, FileText, Eye } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
+import { ArrowLeft, Download, Send, Edit, FileText, Eye, AlertCircle, Loader2 } from "lucide-react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useIntegrationStatus } from "@/hooks/useIntegrationStatus";
+import { useToast } from "@/hooks/use-toast";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Invoice } from "@shared/schema";
 import { format } from "date-fns";
 
 export default function InvoiceDetails() {
   const [match, params] = useRoute("/invoices/:id");
   const invoiceId = params?.id;
+  const { toast } = useToast();
+  const { integrations, isLoading: statusLoading } = useIntegrationStatus();
+  
+  const isEmailConfigured = statusLoading ? true : (integrations?.email?.configured ?? false);
+
+  // Send invoice mutation
+  const sendInvoiceMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/invoices/${invoiceId}/send`) as Response;
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Invoice Sent",
+        description: "The invoice has been sent to the client via email.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices", invoiceId] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Send",
+        description: error.message || "Could not send the invoice. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   // Fetch invoice details
   const { data: invoice, isLoading } = useQuery({
@@ -134,14 +163,37 @@ export default function InvoiceDetails() {
               </Button>
             </Link>
             {invoice.status === "draft" && (
-              <Button
-                onClick={() => {/* Send invoice logic */}}
-                className="bg-[#FF7F00] hover:bg-[#e6720a] text-white"
-                data-testid="button-send-invoice"
-              >
-                <Send className="h-4 w-4 mr-2" />
-                Send Invoice
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <Button
+                        onClick={() => isEmailConfigured && sendInvoiceMutation.mutate()}
+                        className={isEmailConfigured 
+                          ? "bg-[#FF7F00] hover:bg-[#e6720a] text-white" 
+                          : "bg-gray-400 cursor-not-allowed text-white"}
+                        disabled={!isEmailConfigured || sendInvoiceMutation.isPending}
+                        data-testid="button-send-invoice"
+                      >
+                        {sendInvoiceMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : !isEmailConfigured ? (
+                          <AlertCircle className="h-4 w-4 mr-2" />
+                        ) : (
+                          <Send className="h-4 w-4 mr-2" />
+                        )}
+                        {sendInvoiceMutation.isPending ? "Sending..." : "Send Invoice"}
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  {!isEmailConfigured && (
+                    <TooltipContent side="bottom" className="max-w-xs">
+                      <p>Email is not configured. Configure SendGrid in Settings → Integrations to enable invoice sending.</p>
+                      <p className="mt-1 text-xs text-muted-foreground">You can still download the PDF and send it manually.</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
             )}
           </div>
         </div>
@@ -204,7 +256,7 @@ export default function InvoiceDetails() {
                   <div>
                     <h4 className="font-semibold text-gray-900 mb-3">Line Items</h4>
                     <div className="space-y-2">
-                      {invoice.lineItems.map((item, index) => (
+                      {invoice.lineItems.map((item: { description: string; quantity: number; rate: string | number; amount: string | number }, index: number) => (
                         <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded">
                           <div>
                             <p className="font-medium">{item.description}</p>

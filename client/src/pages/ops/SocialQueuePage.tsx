@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useIntegrationStatus } from "@/hooks/useIntegrationStatus";
+import { AlertTriangle, Settings, ExternalLink } from "lucide-react";
+import { Link } from "wouter";
 
 type Item = {
   id: string;
@@ -30,6 +34,16 @@ async function postAction(id: string, action: "pause" | "resume" | "retry" | "ca
 export default function SocialQueuePage() {
   const [items, setItems] = useState<Item[]>([]);
   const [filter, setFilter] = useState<{ status?: string; platform?: string }>({});
+  const { integrations, isLoading: statusLoading } = useIntegrationStatus();
+  
+  // Check which social platforms are configured (assume configured while loading to avoid false alerts)
+  const socialPlatforms = statusLoading ? [] : [
+    { name: "X (Twitter)", configured: integrations?.social?.x?.configured ?? false },
+    { name: "Instagram", configured: integrations?.social?.instagram?.configured ?? false },
+    { name: "LinkedIn", configured: integrations?.social?.linkedin?.configured ?? false },
+  ];
+  const unconfiguredPlatforms = socialPlatforms.filter(p => !p.configured);
+  const hasSocialConfigured = statusLoading || socialPlatforms.some(p => p.configured);
 
   const load = () => fetchQueue(filter).then(r => setItems(r.items)).catch(console.error);
 
@@ -48,6 +62,31 @@ export default function SocialQueuePage() {
 
   return (
     <div className="p-6 space-y-4" data-testid="page-social-queue">
+      {/* Platform Configuration Warning */}
+      {unconfiguredPlatforms.length > 0 && (
+        <Alert variant={hasSocialConfigured ? "default" : "destructive"} className="mb-4">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>
+            {hasSocialConfigured ? "Some Platforms Not Configured" : "No Social Platforms Configured"}
+          </AlertTitle>
+          <AlertDescription className="mt-2">
+            <p className="mb-2">
+              {hasSocialConfigured 
+                ? `The following platforms are not configured: ${unconfiguredPlatforms.map(p => p.name).join(", ")}.`
+                : "You need to configure at least one social media platform to use the posting queue."
+              }
+            </p>
+            <Link href="/settings/connections">
+              <Button variant="outline" size="sm" className="gap-2" data-testid="button-configure-social">
+                <Settings className="h-4 w-4" />
+                Configure Connections
+                <ExternalLink className="h-3 w-3" />
+              </Button>
+            </Link>
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Social Queue</h1>
         <div className="flex gap-2">
