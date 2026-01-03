@@ -946,14 +946,29 @@ export default function CreateInvoice() {
                   {saveInvoiceMutation.isPending ? t('saving') : t('saveInvoice')}
                 </Button>
                 {createdInvoiceId && (
-                  <Button onClick={handleSend} disabled={sendInvoiceMutation.isPending}>
-                    {sendInvoiceMutation.isPending ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    ) : (
-                      <Send className="h-4 w-4 mr-2" />
-                    )}
-                    {t('sendInvoice')}
-                  </Button>
+                  <>
+                    <Button onClick={handleSend} disabled={sendInvoiceMutation.isPending}>
+                      {sendInvoiceMutation.isPending ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      ) : (
+                        <Send className="h-4 w-4 mr-2" />
+                      )}
+                      {t('sendInvoice')}
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => saveToFilingCabinetMutation.mutate(createdInvoiceId)}
+                      disabled={saveToFilingCabinetMutation.isPending}
+                      data-testid="button-save-to-filing-cabinet"
+                    >
+                      {saveToFilingCabinetMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <FolderOpen className="h-4 w-4 mr-2" />
+                      )}
+                      {t('saveToFilingCabinet')}
+                    </Button>
+                  </>
                 )}
               </div>
             </CardContent>
