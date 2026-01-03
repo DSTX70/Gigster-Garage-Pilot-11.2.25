@@ -25,7 +25,7 @@ export function TaskItem({ task }: TaskItemProps) {
 
   const updateTaskMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Task> }) => {
-      const response = await apiRequest("PATCH", `/api/tasks/${id}`, updates);
+      const response = await apiRequest("PATCH", `/api/tasks/${id}`, updates) as Response;
       return response.json();
     },
     onSuccess: () => {
@@ -66,7 +66,7 @@ export function TaskItem({ task }: TaskItemProps) {
 
   const addProgressMutation = useMutation({
     mutationFn: async ({ id, progressData }: { id: string; progressData: { date: string; comment: string } }) => {
-      const response = await apiRequest("POST", `/api/tasks/${id}/progress`, progressData);
+      const response = await apiRequest("POST", `/api/tasks/${id}/progress`, progressData) as Response;
       return response.json();
     },
     onSuccess: () => {
