@@ -89,19 +89,24 @@ export function TimeImportDialog({ open, onOpenChange, onImport, projectId }: Ti
     return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
   };
 
+  // Round UP to nearest minute - minimum 1 minute for any logged time
   const formatMinutes = (seconds: number): number => {
-    return Math.round((seconds / 60) * 100) / 100;
+    return seconds > 0 ? Math.max(1, Math.ceil(seconds / 60)) : 0;
   };
 
   const calculateTotals = () => {
     const selectedLogsArray = uninvoicedLogs.filter(log => selectedLogs.has(log.id));
-    const totalSeconds = selectedLogsArray.reduce((sum, log) => sum + (parseInt(log.duration || "0", 10)), 0);
+    // Sum up billed minutes (each log rounded up to nearest minute, min 1)
+    const totalBilledMinutes = selectedLogsArray.reduce((sum, log) => {
+      const seconds = Number(log.duration) || 0;
+      const billedMinutes = seconds > 0 ? Math.max(1, Math.ceil(seconds / 60)) : 0;
+      return sum + billedMinutes;
+    }, 0);
     // Calculate using minutes as the unit: minutes × per-minute-rate
-    const totalMinutes = totalSeconds / 60;
     const perMinuteRate = hourlyRate / 60;
-    const totalAmount = totalMinutes * perMinuteRate;
+    const totalAmount = totalBilledMinutes * perMinuteRate;
     return { 
-      totalMinutes: Math.round(totalMinutes * 100) / 100, 
+      totalMinutes: totalBilledMinutes, 
       totalAmount: Math.round(totalAmount * 100) / 100 
     };
   };

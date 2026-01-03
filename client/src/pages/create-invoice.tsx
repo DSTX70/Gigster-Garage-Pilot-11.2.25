@@ -131,27 +131,27 @@ export default function CreateInvoice() {
     const perMinuteRate = hourlyRate / 60;
     
     const newLineItems = selectedLogs.map((log, index) => {
-      // Calculate minutes from duration, or compute from start/end times as fallback
-      let minutes = 0;
-      if (log.duration && parseInt(log.duration, 10) > 0) {
-        // Use full precision - seconds converted to minutes (including fractions)
-        minutes = parseInt(log.duration, 10) / 60;
+      // Calculate seconds from duration, or compute from start/end times as fallback
+      let seconds = 0;
+      const parsedDuration = Number(log.duration) || 0;
+      
+      if (parsedDuration > 0) {
+        seconds = parsedDuration;
       } else if (log.startTime && log.endTime) {
         // Calculate duration from timestamps
         const start = new Date(log.startTime).getTime();
         const end = new Date(log.endTime).getTime();
-        const durationSeconds = (end - start) / 1000;
-        minutes = durationSeconds / 60;
+        seconds = Math.max(0, (end - start) / 1000);
       }
       
-      // Round minutes to 2 decimals for display, but use full precision for amount
-      const displayMinutes = Math.round(minutes * 100) / 100;
-      const amount = minutes * perMinuteRate;
+      // Round UP to the nearest minute - minimum 1 minute for any logged time
+      const billedMinutes = seconds > 0 ? Math.max(1, Math.ceil(seconds / 60)) : 0;
+      const amount = billedMinutes * perMinuteRate;
       
       return {
         id: Math.max(...lineItems.map(item => item.id), 0) + index + 1,
-        description: `${log.description} (${displayMinutes} min)`,
-        quantity: displayMinutes,
+        description: `${log.description} (${billedMinutes} min)`,
+        quantity: billedMinutes,
         rate: Math.round(perMinuteRate * 10000) / 10000, // 4 decimal precision for per-minute rate
         amount: Math.round(amount * 100) / 100
       };
