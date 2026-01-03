@@ -130,10 +130,20 @@ export default function CreateInvoice() {
     // Formula: minutes × per-minute-rate = total amount
     const perMinuteRate = hourlyRate / 60;
     
+    console.log("Time import - hourlyRate:", hourlyRate, "perMinuteRate:", perMinuteRate);
+    console.log("Time import - selected logs:", selectedLogs);
+    
     const newLineItems = selectedLogs.map((log, index) => {
       // Calculate seconds from duration, or compute from start/end times as fallback
       let seconds = 0;
-      const parsedDuration = Number(log.duration) || 0;
+      
+      // Try parsing duration - handle both string and number types
+      const durationValue = log.duration;
+      const parsedDuration = typeof durationValue === 'string' 
+        ? parseFloat(durationValue) 
+        : (typeof durationValue === 'number' ? durationValue : 0);
+      
+      console.log(`Log ${log.id}: duration raw="${durationValue}", parsed=${parsedDuration}`);
       
       if (parsedDuration > 0) {
         seconds = parsedDuration;
@@ -142,11 +152,14 @@ export default function CreateInvoice() {
         const start = new Date(log.startTime).getTime();
         const end = new Date(log.endTime).getTime();
         seconds = Math.max(0, (end - start) / 1000);
+        console.log(`Log ${log.id}: computed from timestamps, seconds=${seconds}`);
       }
       
       // Round UP to the nearest minute - minimum 1 minute for any logged time
       const billedMinutes = seconds > 0 ? Math.max(1, Math.ceil(seconds / 60)) : 0;
       const amount = billedMinutes * perMinuteRate;
+      
+      console.log(`Log ${log.id}: seconds=${seconds}, billedMinutes=${billedMinutes}, amount=${amount}`);
       
       return {
         id: Math.max(...lineItems.map(item => item.id), 0) + index + 1,
