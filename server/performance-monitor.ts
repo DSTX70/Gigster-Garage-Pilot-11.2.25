@@ -69,6 +69,17 @@ export interface Alert {
   resolvedAt?: number;
 }
 
+export interface RouteMetrics {
+  route: string;
+  requestCount: number;
+  errorCount: number;
+  latencies: number[];
+  p50: number;
+  p95: number;
+  average: number;
+  errorRate: number;
+}
+
 export class PerformanceMonitor {
   private metrics: PerformanceMetrics[] = [];
   private alerts: Map<string, Alert> = new Map();
@@ -76,6 +87,8 @@ export class PerformanceMonitor {
   private requestCounts = { total: 0, errors: 0 };
   private errorsByCode: Record<string, number> = {};
   private errorsByEndpoint: Record<string, number> = {};
+  private latenciesByRoute: Map<string, number[]> = new Map();
+  private requestCountByRoute: Map<string, number> = new Map();
   private monitoringInterval: NodeJS.Timeout | null = null;
   private startTime = Date.now();
 
@@ -133,17 +146,87 @@ export class PerformanceMonitor {
     this.requestTimes.push(duration);
     this.requestCounts.total++;
 
+    // Track per-route latencies (normalize route by removing dynamic IDs)
+    const normalizedRoute = this.normalizeRoute(endpoint);
+    const routeLatencies = this.latenciesByRoute.get(normalizedRoute) || [];
+    routeLatencies.push(duration);
+    // Keep last 500 latencies per route
+    if (routeLatencies.length > 500) {
+      routeLatencies.shift();
+    }
+    this.latenciesByRoute.set(normalizedRoute, routeLatencies);
+    this.requestCountByRoute.set(normalizedRoute, (this.requestCountByRoute.get(normalizedRoute) || 0) + 1);
+
     // Track errors
     if (statusCode >= 400) {
       this.requestCounts.errors++;
       this.errorsByCode[statusCode] = (this.errorsByCode[statusCode] || 0) + 1;
-      this.errorsByEndpoint[endpoint] = (this.errorsByEndpoint[endpoint] || 0) + 1;
+      this.errorsByEndpoint[normalizedRoute] = (this.errorsByEndpoint[normalizedRoute] || 0) + 1;
     }
 
     // Keep only last 1000 request times for performance
     if (this.requestTimes.length > 1000) {
       this.requestTimes = this.requestTimes.slice(-1000);
     }
+  }
+
+  /**
+   * Normalize route by replacing UUIDs and numeric IDs with placeholders
+   */
+  private normalizeRoute(route: string): string {
+    return route
+      .replace(/\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '/:id')
+      .replace(/\/\d+/g, '/:id')
+      .replace(/\?.*$/, ''); // Remove query params
+  }
+
+  /**
+   * Get per-route metrics with p50/p95 latency and error rates
+   */
+  getRouteMetrics(): RouteMetrics[] {
+    const routeMetrics: RouteMetrics[] = [];
+
+    for (const [route, latencies] of this.latenciesByRoute.entries()) {
+      // Keep original order for recency, create sorted copy for percentiles
+      const recentLatencies = latencies.slice(-100); // Last 100 in recency order
+      const sortedLatencies = [...latencies].sort((a, b) => a - b);
+      const requestCount = this.requestCountByRoute.get(route) || 0;
+      const errorCount = this.errorsByEndpoint[route] || 0;
+
+      routeMetrics.push({
+        route,
+        requestCount,
+        errorCount,
+        latencies: recentLatencies, // Return in recency order for sparklines
+        p50: this.getPercentile(sortedLatencies, 0.5),
+        p95: this.getPercentile(sortedLatencies, 0.95),
+        average: sortedLatencies.length > 0 
+          ? sortedLatencies.reduce((a, b) => a + b, 0) / sortedLatencies.length 
+          : 0,
+        errorRate: requestCount > 0 ? (errorCount / requestCount) * 100 : 0,
+      });
+    }
+
+    return routeMetrics.sort((a, b) => b.requestCount - a.requestCount);
+  }
+
+  /**
+   * Get top slow routes by p95 latency
+   */
+  getTopSlowRoutes(limit: number = 10): RouteMetrics[] {
+    return this.getRouteMetrics()
+      .sort((a, b) => b.p95 - a.p95)
+      .slice(0, limit);
+  }
+
+  /**
+   * Get top error routes by error rate
+   */
+  getTopErrorRoutes(limit: number = 10): RouteMetrics[] {
+    return this.getRouteMetrics()
+      .filter(m => m.requestCount > 0)
+      .sort((a, b) => b.errorRate - a.errorRate)
+      .slice(0, limit);
   }
 
   /**

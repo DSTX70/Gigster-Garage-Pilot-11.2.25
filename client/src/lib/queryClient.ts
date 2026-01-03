@@ -9,6 +9,19 @@ const resolveUrl = (path: string): string => {
   return path;
 };
 
+// Custom error class that includes requestId for support correlation
+export class ApiError extends Error {
+  requestId?: string;
+  statusCode: number;
+
+  constructor(message: string, statusCode: number, requestId?: string) {
+    super(message);
+    this.name = 'ApiError';
+    this.statusCode = statusCode;
+    this.requestId = requestId;
+  }
+}
+
 // Safe JSON stringify (handles BigInt by stringifying it)
 const safeStringify = (value: unknown): string => {
   try {
@@ -71,7 +84,14 @@ export async function apiRequest<T = unknown>(
       (parsed && typeof parsed === "object" && (parsed.error?.message || parsed.message)) ||
       (typeof parsed === "string" ? parsed : res.statusText);
 
-    throw new Error(`HTTP ${res.status} ${res.statusText}: ${serverMsg || "Request failed"}`);
+    // Extract requestId from response headers for support correlation
+    const requestId = res.headers.get("X-Request-Id") || undefined;
+    
+    throw new ApiError(
+      `HTTP ${res.status} ${res.statusText}: ${serverMsg || "Request failed"}`,
+      res.status,
+      requestId
+    );
   }
 
   return parsed as T;
@@ -83,7 +103,8 @@ async function throwIfResNotOk(res: Response) {
       invalidateAuthUserQuery();
     }
     const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+    const requestId = res.headers.get("X-Request-Id") || undefined;
+    throw new ApiError(`${res.status}: ${text}`, res.status, requestId);
   }
 }
 

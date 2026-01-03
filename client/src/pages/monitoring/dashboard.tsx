@@ -1,9 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Activity,
   AlertTriangle,
@@ -13,8 +15,12 @@ import {
   Zap,
   Loader2,
   XCircle,
+  Download,
+  Route,
+  Copy,
 } from "lucide-react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { useToast } from "@/hooks/use-toast";
 
 interface SLOMetrics {
   errorRate: number;
@@ -37,8 +43,34 @@ interface SystemHealth {
   lastCheck: string;
 }
 
+interface RouteMetric {
+  route: string;
+  requestCount: number;
+  errorCount: number;
+  errorRate: number;
+  latency: {
+    p50: number;
+    p95: number;
+    average: number;
+  };
+}
+
+interface RouteMetricsResponse {
+  timestamp: string;
+  timeWindow: string;
+  routes: RouteMetric[];
+  summary: {
+    totalRoutes: number;
+    topSlowRoutes: string[];
+    topErrorRoutes: string[];
+  };
+}
+
 export default function MonitoringDashboard() {
   const [refreshInterval, setRefreshInterval] = useState(30000);
+  const [routeSort, setRouteSort] = useState<'requests' | 'p95' | 'errorRate'>('requests');
+  const [isDownloading, setIsDownloading] = useState(false);
+  const { toast } = useToast();
 
   const { data: sloMetrics, isLoading: sloLoading } = useQuery<SLOMetrics>({
     queryKey: ["/api/ops/metrics/slo"],
@@ -54,6 +86,41 @@ export default function MonitoringDashboard() {
     queryKey: ["/api/ops/health"],
     refetchInterval: refreshInterval,
   });
+
+  const { data: routeMetrics, isLoading: routeMetricsLoading } = useQuery<RouteMetricsResponse>({
+    queryKey: ["/api/admin/route-metrics", { sort: routeSort }],
+    refetchInterval: refreshInterval,
+  });
+
+  const handleDownloadBundle = async () => {
+    setIsDownloading(true);
+    try {
+      const response = await fetch('/api/admin/support-bundle', { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to download bundle');
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `support-bundle-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      
+      toast({ title: "Success", description: "Support bundle downloaded" });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: "Failed to download support bundle" });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const copyRouteToClipboard = async (route: RouteMetric) => {
+    const text = `Route: ${route.route}\nRequests: ${route.requestCount}\nErrors: ${route.errorCount} (${route.errorRate.toFixed(2)}%)\nLatency p50: ${route.latency.p50}ms, p95: ${route.latency.p95}ms`;
+    await navigator.clipboard.writeText(text);
+    toast({ title: "Copied", description: "Route summary copied to clipboard" });
+  };
 
   const getHealthColor = (status: string) => {
     switch (status) {
@@ -144,19 +211,34 @@ export default function MonitoringDashboard() {
           <h1 className="text-3xl font-bold mb-2">System Monitoring</h1>
           <p className="text-muted-foreground">Real-time metrics and service health</p>
         </div>
-        {systemHealth && (
-          <div className="flex items-center gap-3">
-            {getStatusIcon(systemHealth.status)}
-            <div>
-              <p className={`font-semibold ${getHealthColor(systemHealth.status)}`}>
-                {systemHealth.status.toUpperCase()}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Uptime: {formatUptime(systemHealth.uptime)}
-              </p>
+        <div className="flex items-center gap-4">
+          <Button 
+            variant="outline" 
+            onClick={handleDownloadBundle}
+            disabled={isDownloading}
+            data-testid="button-download-bundle"
+          >
+            {isDownloading ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4 mr-2" />
+            )}
+            Support Bundle
+          </Button>
+          {systemHealth && (
+            <div className="flex items-center gap-3">
+              {getStatusIcon(systemHealth.status)}
+              <div>
+                <p className={`font-semibold ${getHealthColor(systemHealth.status)}`}>
+                  {systemHealth.status.toUpperCase()}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Uptime: {formatUptime(systemHealth.uptime)}
+                </p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -222,8 +304,12 @@ export default function MonitoringDashboard() {
         </Card>
       </div>
 
-      <Tabs defaultValue="rate-limits" className="space-y-4">
+      <Tabs defaultValue="routes" className="space-y-4">
         <TabsList>
+          <TabsTrigger value="routes" data-testid="tab-routes">
+            <Route className="h-4 w-4 mr-2" />
+            Routes
+          </TabsTrigger>
           <TabsTrigger value="rate-limits" data-testid="tab-rate-limits">
             <Zap className="h-4 w-4 mr-2" />
             Rate Limits
@@ -237,6 +323,97 @@ export default function MonitoringDashboard() {
             Trends
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="routes" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Route-Level Metrics</CardTitle>
+              <CardDescription>
+                p50/p95 latency and error rates by endpoint
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-2 mb-4">
+                <span className="text-sm text-muted-foreground mr-2">Sort by:</span>
+                {(['requests', 'p95', 'errorRate'] as const).map((sort) => (
+                  <Badge
+                    key={sort}
+                    variant={routeSort === sort ? "default" : "outline"}
+                    className="cursor-pointer"
+                    onClick={() => setRouteSort(sort)}
+                    data-testid={`badge-sort-${sort}`}
+                  >
+                    {sort === 'requests' ? 'Request Count' : sort === 'p95' ? 'p95 Latency' : 'Error Rate'}
+                  </Badge>
+                ))}
+              </div>
+              {routeMetricsLoading ? (
+                <div className="flex items-center justify-center h-32">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                </div>
+              ) : routeMetrics?.routes?.length ? (
+                <div className="overflow-auto max-h-[400px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Route</TableHead>
+                        <TableHead className="text-right">Requests</TableHead>
+                        <TableHead className="text-right">Errors</TableHead>
+                        <TableHead className="text-right">Error Rate</TableHead>
+                        <TableHead className="text-right">p50</TableHead>
+                        <TableHead className="text-right">p95</TableHead>
+                        <TableHead className="w-10"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {routeMetrics.routes.slice(0, 20).map((route, idx) => (
+                        <TableRow key={idx} data-testid={`row-route-${idx}`}>
+                          <TableCell className="font-mono text-xs max-w-[200px] truncate" title={route.route}>
+                            {route.route}
+                          </TableCell>
+                          <TableCell className="text-right">{route.requestCount}</TableCell>
+                          <TableCell className="text-right">
+                            <span className={route.errorCount > 0 ? "text-red-600" : ""}>
+                              {route.errorCount}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Badge variant={route.errorRate > 5 ? "destructive" : route.errorRate > 1 ? "secondary" : "outline"}>
+                              {route.errorRate.toFixed(2)}%
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs">{route.latency.p50}ms</TableCell>
+                          <TableCell className="text-right font-mono text-xs">
+                            <span className={route.latency.p95 > 1000 ? "text-yellow-600 font-medium" : ""}>
+                              {route.latency.p95}ms
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => copyRouteToClipboard(route)}
+                              data-testid={`button-copy-route-${idx}`}
+                            >
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Route className="h-10 w-10 mx-auto mb-3 opacity-40" />
+                  <p>No route metrics available yet</p>
+                  <p className="text-xs mt-1">Metrics will appear as requests are made</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="rate-limits" className="space-y-4">
           <Card>

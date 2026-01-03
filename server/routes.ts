@@ -882,6 +882,149 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return res.json({ ok: true, received: events.length, stored: Math.min(events.length, 100) });
   });
 
+  // GET /api/admin/support-bundle - Download sanitized support bundle for debugging
+  app.get("/api/admin/support-bundle", requireAdmin, async (req: any, res) => {
+    const adminUserId = req.session.user?.id;
+    
+    // Log that bundle was generated
+    await logAuditEvent({
+      userId: adminUserId,
+      action: 'support_bundle_generated',
+      resourceType: 'system',
+      resourceId: 'support-bundle',
+      changes: { timestamp: new Date().toISOString() }
+    });
+
+    const uptimeSeconds = Math.floor((Date.now() - serverStartTime) / 1000);
+    const metrics = performanceMonitor.getCurrentMetrics();
+    const topSlowRoutes = performanceMonitor.getTopSlowRoutes(10);
+    const topErrorRoutes = performanceMonitor.getTopErrorRoutes(10);
+    const recentErrors = getRecentErrors(50);
+
+    // Build sanitized support bundle
+    const bundle = {
+      generatedAt: new Date().toISOString(),
+      generatedBy: adminUserId ? `admin_${adminUserId.substring(0, 8)}` : 'unknown',
+      
+      // Version and build info
+      version: {
+        nodeVersion: process.version,
+        buildSha: BUILD_SHA,
+        buildTime: BUILD_TIME,
+      },
+      
+      // Runtime info
+      runtime: {
+        uptimeSeconds,
+        storageMode: getStorageMode(),
+        environment: process.env.NODE_ENV || 'development',
+      },
+      
+      // System status (configured flags only, no values)
+      configuredIntegrations: {
+        database: !!process.env.DATABASE_URL,
+        stripe: !!process.env.STRIPE_SECRET_KEY,
+        sendgrid: !!(process.env.SENDGRID_API_KEY || process.env.SENDGRID_API_KEY_2),
+        twilio: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN),
+        objectStorage: !!process.env.PRIVATE_OBJECT_DIR,
+        openai: !!(process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY),
+        slack: !!process.env.SLACK_BOT_TOKEN,
+      },
+      
+      // Performance metrics
+      performance: {
+        responseTime: {
+          average: metrics.responseTime.average,
+          p50: metrics.responseTime.p50,
+          p95: metrics.responseTime.p95,
+          p99: metrics.responseTime.p99,
+        },
+        throughput: {
+          requestsPerSecond: metrics.throughput.requestsPerSecond,
+          totalRequests: metrics.throughput.totalRequests,
+          errorRate: metrics.throughput.errorRate,
+        },
+        cache: {
+          hitRate: metrics.cache.hitRate,
+          missRate: metrics.cache.missRate,
+        },
+      },
+      
+      // Top failing/slow routes
+      topSlowRoutes: topSlowRoutes.map(r => ({
+        route: r.route,
+        p50: Math.round(r.p50),
+        p95: Math.round(r.p95),
+        requestCount: r.requestCount,
+      })),
+      
+      topErrorRoutes: topErrorRoutes.map(r => ({
+        route: r.route,
+        errorRate: Number(r.errorRate.toFixed(2)),
+        errorCount: r.errorCount,
+        requestCount: r.requestCount,
+      })),
+      
+      // Recent errors (sanitized - no user data)
+      recentErrors: recentErrors.slice(0, 20).map(e => ({
+        timestamp: e.timestamp,
+        path: e.path,
+        method: e.method,
+        statusCode: e.statusCode,
+        message: e.message?.substring(0, 200), // Truncate long messages
+      })),
+      
+      // Error summary
+      errorSummary: {
+        byStatusCode: metrics.errors.byStatusCode,
+        totalErrorRate: metrics.errors.rate,
+        totalErrors: metrics.errors.total,
+      },
+    };
+
+    // Return as downloadable JSON file
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="support-bundle-${new Date().toISOString().split('T')[0]}.json"`);
+    res.json(bundle);
+  });
+
+  // GET /api/admin/route-metrics - Route-level latency and error metrics
+  app.get("/api/admin/route-metrics", requireAdmin, (req, res) => {
+    const timeWindow = String(req.query.window || '15m');
+    const sortBy = String(req.query.sort || 'requests'); // requests, p95, errorRate
+    
+    let routeMetrics = performanceMonitor.getRouteMetrics();
+    
+    // Sort by requested field
+    if (sortBy === 'p95') {
+      routeMetrics = routeMetrics.sort((a, b) => b.p95 - a.p95);
+    } else if (sortBy === 'errorRate') {
+      routeMetrics = routeMetrics.sort((a, b) => b.errorRate - a.errorRate);
+    }
+    // Default is already sorted by request count
+    
+    res.json({
+      timestamp: new Date().toISOString(),
+      timeWindow,
+      routes: routeMetrics.map(r => ({
+        route: r.route,
+        requestCount: r.requestCount,
+        errorCount: r.errorCount,
+        errorRate: Number(r.errorRate.toFixed(2)),
+        latency: {
+          p50: Math.round(r.p50),
+          p95: Math.round(r.p95),
+          average: Math.round(r.average),
+        },
+      })),
+      summary: {
+        totalRoutes: routeMetrics.length,
+        topSlowRoutes: performanceMonitor.getTopSlowRoutes(5).map(r => r.route),
+        topErrorRoutes: performanceMonitor.getTopErrorRoutes(5).map(r => r.route),
+      },
+    });
+  });
+
   // Database health endpoint with pool monitoring
   app.get("/api/db-health", async (_req, res) => {
     try {

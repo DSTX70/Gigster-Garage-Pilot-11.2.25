@@ -13,6 +13,7 @@ type ToasterToast = ToastProps & {
   title?: React.ReactNode
   description?: React.ReactNode
   action?: ToastActionElement
+  requestId?: string
 }
 
 const actionTypes = {
@@ -188,4 +189,27 @@ function useToast() {
   }
 }
 
-export { useToast, toast }
+// Helper to show error toast with requestId for support correlation
+function toastError(error: unknown, fallbackTitle = "Error") {
+  let message = "An unexpected error occurred";
+  let requestId: string | undefined;
+  
+  if (error instanceof Error) {
+    message = error.message;
+    // Check if it's our custom ApiError with requestId
+    if ('requestId' in error && typeof (error as any).requestId === 'string') {
+      requestId = (error as any).requestId;
+    }
+  } else if (typeof error === 'string') {
+    message = error;
+  }
+  
+  return toast({
+    variant: "destructive",
+    title: fallbackTitle,
+    description: message,
+    requestId,
+  });
+}
+
+export { useToast, toast, toastError }
