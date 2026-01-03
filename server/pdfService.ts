@@ -2,6 +2,15 @@ import puppeteer, { Browser, Page } from 'puppeteer';
 import { promises as fs } from 'fs';
 import path from 'path';
 
+import {
+  generateInvoicePDF as pdfkitGenerateInvoicePDF,
+  generateProposalPDF as pdfkitGenerateProposalPDF,
+  generateContractPDF as pdfkitGenerateContractPDF,
+  generatePresentationPDF as pdfkitGeneratePresentationPDF,
+} from './pdfkitService';
+
+const USE_PDFKIT = true;
+
 let browser: Browser | null = null;
 let browserHealthy = false;
 let lastHealthCheck = 0;
@@ -346,6 +355,12 @@ export async function generatePDFFromHTML(
 
 // Generate proposal PDF
 export async function generateProposalPDF(proposal: any): Promise<Buffer> {
+  if (USE_PDFKIT) {
+    console.log('📄 Generating proposal PDF using pdfkit (browser-free)');
+    return pdfkitGenerateProposalPDF(proposal);
+  }
+  
+  console.log('📄 Generating proposal PDF using Puppeteer (browser-based)');
   const htmlContent = `
     <!DOCTYPE html>
     <html>
@@ -506,8 +521,14 @@ export async function generateProposalPDF(proposal: any): Promise<Buffer> {
   });
 }
 
-// Generate invoice PDF
+// Generate contract PDF
 export async function generateContractPDF(contract: any): Promise<Buffer> {
+  if (USE_PDFKIT) {
+    console.log('📄 Generating contract PDF using pdfkit (browser-free)');
+    return pdfkitGenerateContractPDF(contract);
+  }
+  
+  console.log('📄 Generating contract PDF using Puppeteer (browser-based)');
   const htmlContent = `
     <!DOCTYPE html>
     <html>
@@ -707,6 +728,12 @@ export async function generateContractPDF(contract: any): Promise<Buffer> {
 }
 
 export async function generatePresentationPDF(presentation: any): Promise<Buffer> {
+  if (USE_PDFKIT) {
+    console.log('📄 Generating presentation PDF using pdfkit (browser-free)');
+    return pdfkitGeneratePresentationPDF(presentation);
+  }
+  
+  console.log('📄 Generating presentation PDF using Puppeteer (browser-based)');
   const slides = Array.isArray(presentation.slides) ? presentation.slides.sort((a: any, b: any) => a.order - b.order) : [];
   
   const slidesHtml = slides.map((slide: any, index: number) => {
@@ -865,6 +892,12 @@ export async function generatePresentationPDF(presentation: any): Promise<Buffer
 }
 
 export async function generateInvoicePDF(invoice: any): Promise<Buffer> {
+  if (USE_PDFKIT) {
+    console.log('📄 Generating invoice PDF using pdfkit (browser-free)');
+    return pdfkitGenerateInvoicePDF(invoice);
+  }
+  
+  console.log('📄 Generating invoice PDF using Puppeteer (browser-based)');
   const htmlContent = `
     <!DOCTYPE html>
     <html>
