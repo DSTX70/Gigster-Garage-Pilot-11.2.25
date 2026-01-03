@@ -4433,8 +4433,7 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
           email: proposal.clientEmail || '',
           phone: '',
           address: '',
-          notes: `Auto-created from proposal ${proposal.title}`,
-          createdById: req.session.user!.id
+          notes: `Auto-created from proposal ${proposal.title}`
         };
         const newClient = await storage.createClient(clientData);
         clientId = newClient.id;
@@ -4446,7 +4445,6 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
         name: `Proposal: ${proposal.title}`,
         description: `Proposal for ${proposal.clientName || 'client'} - ${proposal.title}`,
         type: 'proposal' as const,
-        category: 'proposal',
         fileUrl: fileUrl,
         fileName: fileName,
         fileSize: proposalPDF.length,
@@ -4515,9 +4513,8 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
           name: contract.clientName,
           email: contract.clientEmail || '',
           phone: '',
-          address: contract.clientAddress || '',
-          notes: `Auto-created from contract ${contract.title}`,
-          createdById: req.session.user!.id
+          address: '',
+          notes: `Auto-created from contract ${contract.title}`
         };
         const newClient = await storage.createClient(clientData);
         clientId = newClient.id;
@@ -4529,13 +4526,11 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
         name: `Contract: ${contract.title}`,
         description: `Contract for ${contract.clientName || 'client'} - ${contract.title}`,
         type: 'contract' as const,
-        category: 'contract',
         fileUrl: fileUrl,
         fileName: fileName,
         fileSize: contractPDF.length,
         mimeType: 'application/pdf',
-        uploadedById: req.session.user!.id,
-        createdById: req.session.user!.id
+        uploadedById: req.session.user!.id
       };
 
       const document = await storage.createClientDocument(documentData);
@@ -4598,8 +4593,7 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
         email: '',
         phone: '',
         address: '',
-        notes: `Auto-created from presentation ${presentation.title}`,
-        createdById: req.session.user!.id
+        notes: `Auto-created from presentation ${presentation.title}`
       };
       const newClient = await storage.createClient(clientData);
       const clientId = newClient.id;
@@ -4610,13 +4604,11 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
         name: `Presentation: ${presentation.title}`,
         description: `Presentation: ${presentation.title} - ${presentation.audience || 'General Audience'}`,
         type: 'presentation' as const,
-        category: 'presentation',
         fileUrl: fileUrl,
         fileName: fileName,
         fileSize: presentationPDF.length,
         mimeType: 'application/pdf',
-        uploadedById: req.session.user!.id,
-        createdById: req.session.user!.id
+        uploadedById: req.session.user!.id
       };
 
       const document = await storage.createClientDocument(documentData);
@@ -4690,8 +4682,7 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
           email: invoice.clientEmail || '',
           phone: '',
           address: '',
-          notes: `Auto-created from invoice ${invoice.invoiceNumber}`,
-          createdById: req.session.user!.id
+          notes: `Auto-created from invoice ${invoice.invoiceNumber}`
         };
         const newClient = await storage.createClient(clientData);
         clientId = newClient.id;
@@ -4703,13 +4694,11 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
         name: `Invoice ${invoice.invoiceNumber}`,
         description: `Invoice for ${invoice.clientName || 'client'} - $${invoice.totalAmount}`,
         type: 'invoice' as const,
-        category: 'invoice',
         fileUrl: fileUrl,
         fileName: fileName,
         fileSize: pdfBuffer.length,
         mimeType: 'application/pdf',
-        uploadedById: req.session.user!.id,
-        createdById: req.session.user!.id
+        uploadedById: req.session.user!.id
       };
 
       const document = await storage.createClientDocument(documentData);
@@ -5778,13 +5767,12 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
         email: '',
         phone: '',
         address: '',
-        notes: 'Auto-created for Agency Hub generated visuals',
-        createdById: req.session.user!.id
+        notes: 'Auto-created for Agency Hub generated visuals'
       };
       
       // Check if client already exists
       let existingClients = await storage.getClients();
-      let agencyClient = existingClients.find(c => c.name === "Agency Hub Visuals" && c.createdById === req.session.user!.id);
+      let agencyClient = existingClients.find(c => c.name === "Agency Hub Visuals");
       
       if (!agencyClient) {
         agencyClient = await storage.createClient(clientData);
@@ -5795,14 +5783,12 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
         clientId: agencyClient.id,
         name: `Agency Visual: ${prompt?.substring(0, 50) || 'Generated Visual'}...`,
         description: description || `AI-generated marketing visual${prompt ? ` from prompt: ${prompt}` : ''}`,
-        type: 'visual' as const,
-        category: 'marketing',
+        type: 'other' as const,
         fileUrl: fileUrl,
         fileName: fileName,
         fileSize: imageBuffer.length,
         mimeType: 'image/png',
         uploadedById: req.session.user!.id,
-        createdById: req.session.user!.id,
         tags: ['agency-hub', 'ai-generated', 'marketing-visual'],
         metadata: {
           prompt: prompt || '',
@@ -5876,7 +5862,7 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
 
       // Get or create client for generated content
       let existingClients = await storage.getClients();
-      let generatedClient = existingClients.find(c => c.name === "Generated Content" && c.createdById === req.session.user!.id);
+      let generatedClient = existingClients.find(c => c.name === "Generated Content");
       
       if (!generatedClient) {
         generatedClient = await storage.createClient({
@@ -5884,8 +5870,7 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
           email: '',
           phone: '',
           address: '',
-          notes: 'Auto-created for generated and saved content',
-          createdById: req.session.user!.id
+          notes: 'Auto-created for generated and saved content'
         });
       }
 
@@ -5900,7 +5885,6 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
         fileSize: fileBuffer.length,
         mimeType: finalMimeType,
         uploadedById: req.session.user!.id,
-        createdById: req.session.user!.id,
         tags: ['generated', 'saved-content'],
         metadata: {
           savedAt: new Date().toISOString(),
