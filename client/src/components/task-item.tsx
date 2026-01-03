@@ -206,12 +206,19 @@ export function TaskItem({ task }: TaskItemProps) {
 
   return (
     <>
-    <div className={`gg-task-card fade-in-up group ${
-      task.completed ? 'opacity-75' : ''
-    } ${isOverdue ? 'border-red-200' : ''}`}>
+    <div 
+      className={`gg-task-card fade-in-up group cursor-pointer hover:shadow-md transition-shadow ${
+        task.completed ? 'opacity-75' : ''
+      } ${isOverdue ? 'border-red-200' : ''}`}
+      onClick={() => setIsDetailModalOpen(true)}
+      data-testid={`task-card-${task.id}`}
+    >
       <div className="flex items-start space-x-4">
         <button
-          onClick={handleToggleComplete}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleToggleComplete();
+          }}
           disabled={updateTaskMutation.isPending}
           className={`mt-1 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors duration-200 ${
             task.completed
@@ -220,6 +227,7 @@ export function TaskItem({ task }: TaskItemProps) {
               ? 'border-red-300 hover:border-red-500'
               : 'border-neutral-300 hover:border-primary'
           }`}
+          data-testid={`task-checkbox-${task.id}`}
         >
           {task.completed && <span className="text-xs">✓</span>}
         </button>
@@ -242,7 +250,10 @@ export function TaskItem({ task }: TaskItemProps) {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setIsDetailModalOpen(true)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsDetailModalOpen(true);
+                }}
                 className="text-neutral-400 hover:text-neutral-600 p-1"
                 title="View Details"
               >
@@ -252,7 +263,10 @@ export function TaskItem({ task }: TaskItemProps) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setIsExpanded(!isExpanded)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsExpanded(!isExpanded);
+                  }}
                   className="text-neutral-400 hover:text-neutral-600 p-1"
                 >
                   {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -261,7 +275,10 @@ export function TaskItem({ task }: TaskItemProps) {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={handleDelete}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete();
+                }}
                 disabled={deleteTaskMutation.isPending}
                 className="text-neutral-400 hover:text-neutral-600 p-1"
               >
