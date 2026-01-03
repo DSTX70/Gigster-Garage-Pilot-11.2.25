@@ -131,44 +131,42 @@ export default function CreateInvoice() {
     const perMinuteRate = hourlyRate / 60;
     
     console.log("Time import - hourlyRate:", hourlyRate, "perMinuteRate:", perMinuteRate);
-    console.log("Time import - selected logs:", selectedLogs);
+    console.log("Time import - selected logs:", JSON.stringify(selectedLogs, null, 2));
     
     const newLineItems = selectedLogs.map((log, index) => {
-      // Calculate seconds from duration, or compute from start/end times as fallback
-      let seconds = 0;
+      // Parse duration in seconds (same approach as time-import-dialog)
+      // Use parseInt with fallback to "0" for null/undefined values
+      const seconds = parseInt(String(log.duration) || "0", 10);
       
-      // Try parsing duration - handle both string and number types
-      const durationValue = log.duration;
-      const parsedDuration = typeof durationValue === 'string' 
-        ? parseFloat(durationValue) 
-        : (typeof durationValue === 'number' ? durationValue : 0);
-      
-      console.log(`Log ${log.id}: duration raw="${durationValue}", parsed=${parsedDuration}`);
-      
-      if (parsedDuration > 0) {
-        seconds = parsedDuration;
-      } else if (log.startTime && log.endTime) {
-        // Calculate duration from timestamps
-        const start = new Date(log.startTime).getTime();
-        const end = new Date(log.endTime).getTime();
-        seconds = Math.max(0, (end - start) / 1000);
-        console.log(`Log ${log.id}: computed from timestamps, seconds=${seconds}`);
+      // If duration is 0 or NaN, try to compute from timestamps
+      let finalSeconds = seconds;
+      if (!finalSeconds || isNaN(finalSeconds)) {
+        if (log.startTime && log.endTime) {
+          const start = new Date(log.startTime).getTime();
+          const end = new Date(log.endTime).getTime();
+          finalSeconds = Math.max(0, Math.floor((end - start) / 1000));
+          console.log(`Log ${log.id}: computed from timestamps, finalSeconds=${finalSeconds}`);
+        }
       }
       
+      console.log(`Log ${log.id}: duration raw="${log.duration}", parsed seconds=${finalSeconds}`);
+      
       // Round UP to the nearest minute - minimum 1 minute for any logged time
-      const billedMinutes = seconds > 0 ? Math.max(1, Math.ceil(seconds / 60)) : 0;
+      const billedMinutes = finalSeconds > 0 ? Math.max(1, Math.ceil(finalSeconds / 60)) : 0;
       const amount = billedMinutes * perMinuteRate;
       
-      console.log(`Log ${log.id}: seconds=${seconds}, billedMinutes=${billedMinutes}, amount=${amount}`);
+      console.log(`Log ${log.id}: billedMinutes=${billedMinutes}, rate=${perMinuteRate}, amount=${amount}`);
       
       return {
         id: Math.max(...lineItems.map(item => item.id), 0) + index + 1,
-        description: `${log.description} (${billedMinutes} min)`,
+        description: `${log.description || 'Time entry'} (${billedMinutes} min)`,
         quantity: billedMinutes,
         rate: Math.round(perMinuteRate * 10000) / 10000, // 4 decimal precision for per-minute rate
         amount: Math.round(amount * 100) / 100
       };
     });
+    
+    console.log("Created line items:", JSON.stringify(newLineItems, null, 2));
 
     // Add to existing line items (or replace if only one empty item)
     if (lineItems.length === 1 && !lineItems[0].description && lineItems[0].rate === 0) {
