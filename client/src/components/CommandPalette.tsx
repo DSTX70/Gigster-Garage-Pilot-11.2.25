@@ -38,6 +38,7 @@ import {
   MessageSquare,
   Activity,
   Inbox,
+  Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -48,8 +49,31 @@ import { Badge } from "@/components/ui/badge";
 interface RecentPage {
   title: string;
   url: string;
-  iconName: string; // Store icon identifier instead of React node
+  iconName: string;
   timestamp: number;
+}
+
+interface RecentEntity {
+  id: string;
+  type: "client" | "project" | "invoice" | "task";
+  title: string;
+  url: string;
+  timestamp: number;
+}
+
+interface UniversalSearchResult {
+  id: string;
+  type: "task" | "project" | "client" | "invoice" | "message";
+  title: string;
+  description?: string;
+  url: string;
+  metadata?: {
+    status?: string;
+    priority?: string;
+    dueDate?: string;
+    projectName?: string;
+    assigneeName?: string;
+  };
 }
 
 // Icon mapping for rehydration
@@ -92,30 +116,32 @@ interface SearchResult {
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const { user, isAdmin } = useAuth();
   const [recentPages, setRecentPages] = useState<RecentPage[]>([]);
+  const [recentEntities, setRecentEntities] = useState<RecentEntity[]>([]);
 
-  // Fetch all data for search
-  const { data: tasks = [] } = useQuery<Task[]>({
-    queryKey: ["/api/tasks"],
-    enabled: open,
-  });
+  // Debounce search for server-side API
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [search]);
 
-  const { data: projects = [] } = useQuery<Project[]>({
-    queryKey: ["/api/projects"],
-    enabled: open,
-  });
-
-  const { data: clients = [] } = useQuery<Client[]>({
-    queryKey: ["/api/clients"],
-    enabled: open,
-  });
-
-  const { data: invoices = [] } = useQuery<Invoice[]>({
-    queryKey: ["/api/invoices"],
-    enabled: open,
+  // Use server-side universal search
+  const { data: searchResults = [], isLoading: isSearching } = useQuery<UniversalSearchResult[]>({
+    queryKey: ["/api/search", debouncedSearch],
+    queryFn: async () => {
+      if (debouncedSearch.length < 2) return [];
+      const response = await fetch(`/api/search?q=${encodeURIComponent(debouncedSearch)}`);
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: open && debouncedSearch.length >= 2,
+    staleTime: 10000,
   });
 
   const { data: activeTimer } = useQuery<TimeLog | null>({
@@ -123,14 +149,23 @@ export function CommandPalette() {
     enabled: open,
   });
 
-  // Load recent pages from localStorage
+  // Load recent pages and entities from localStorage
   useEffect(() => {
-    const stored = localStorage.getItem("recent-pages");
-    if (stored) {
+    const storedPages = localStorage.getItem("recent-pages");
+    if (storedPages) {
       try {
-        setRecentPages(JSON.parse(stored));
+        setRecentPages(JSON.parse(storedPages));
       } catch (e) {
         console.error("Failed to parse recent pages", e);
+      }
+    }
+    
+    const storedEntities = localStorage.getItem("recent-entities");
+    if (storedEntities) {
+      try {
+        setRecentEntities(JSON.parse(storedEntities));
+      } catch (e) {
+        console.error("Failed to parse recent entities", e);
       }
     }
   }, [open]);
@@ -144,6 +179,18 @@ export function CommandPalette() {
       ].slice(0, 10);
       localStorage.setItem("recent-pages", JSON.stringify(newPages));
       return newPages;
+    });
+  }, []);
+
+  // Save entity visit (for clients, projects, invoices, tasks)
+  const saveEntityVisit = useCallback((entity: Omit<RecentEntity, "timestamp">) => {
+    setRecentEntities((prev) => {
+      const newEntities = [
+        { ...entity, timestamp: Date.now() },
+        ...prev.filter((e) => e.id !== entity.id || e.type !== entity.type),
+      ].slice(0, 15);
+      localStorage.setItem("recent-entities", JSON.stringify(newEntities));
+      return newEntities;
     });
   }, []);
 
@@ -206,38 +253,50 @@ export function CommandPalette() {
     },
   });
 
-  // Filter search results
-  const filteredTasks = search
-    ? tasks
-        .filter((task) =>
-          task.title.toLowerCase().includes(search.toLowerCase())
-        )
-        .slice(0, 5)
-    : [];
+  // Group search results by type for better organization
+  const groupedResults = {
+    tasks: searchResults.filter(r => r.type === "task"),
+    projects: searchResults.filter(r => r.type === "project"),
+    clients: searchResults.filter(r => r.type === "client"),
+    invoices: searchResults.filter(r => r.type === "invoice"),
+    messages: searchResults.filter(r => r.type === "message"),
+  };
 
-  const filteredProjects = search
-    ? projects
-        .filter((project) =>
-          project.name.toLowerCase().includes(search.toLowerCase())
-        )
-        .slice(0, 5)
-    : [];
+  // Get recent entities by type
+  const recentClients = recentEntities.filter(e => e.type === "client").slice(0, 3);
+  const recentProjects = recentEntities.filter(e => e.type === "project").slice(0, 3);
+  const recentInvoices = recentEntities.filter(e => e.type === "invoice").slice(0, 3);
+  const recentTasks = recentEntities.filter(e => e.type === "task").slice(0, 3);
+  const hasRecentEntities = recentClients.length > 0 || recentProjects.length > 0 || 
+                            recentInvoices.length > 0 || recentTasks.length > 0;
 
-  const filteredClients = search
-    ? clients
-        .filter((client) =>
-          client.name.toLowerCase().includes(search.toLowerCase())
-        )
-        .slice(0, 5)
-    : [];
+  // Icon for search result types
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case "task": return <Clock className="h-4 w-4" />;
+      case "project": return <Folder className="h-4 w-4" />;
+      case "client": return <Users className="h-4 w-4" />;
+      case "invoice": return <FileText className="h-4 w-4" />;
+      case "message": return <Mail className="h-4 w-4" />;
+      default: return <Search className="h-4 w-4" />;
+    }
+  };
 
-  const filteredInvoices = search
-    ? invoices
-        .filter((invoice) =>
-          invoice.invoiceNumber.toLowerCase().includes(search.toLowerCase())
-        )
-        .slice(0, 5)
-    : [];
+  // Handle search result selection
+  const handleSearchResultSelect = (result: UniversalSearchResult) => {
+    // Only save entity visits for supported types (not messages)
+    const supportedTypes: RecentEntity["type"][] = ["client", "project", "invoice", "task"];
+    if (supportedTypes.includes(result.type as RecentEntity["type"])) {
+      saveEntityVisit({
+        id: result.id,
+        type: result.type as RecentEntity["type"],
+        title: result.title,
+        url: result.url,
+      });
+    }
+    navigate(result.url);
+    setOpen(false);
+  };
 
   // Quick actions - Create documents
   const createActions = [
@@ -485,7 +544,7 @@ export function CommandPalette() {
         {!search && recentPages.length > 0 && (
           <>
             <CommandSeparator />
-            <CommandGroup heading="Recent">
+            <CommandGroup heading="Recent Pages">
               {recentPages.slice(0, 5).map((page) => (
                 <CommandItem
                   key={page.url}
@@ -502,27 +561,119 @@ export function CommandPalette() {
           </>
         )}
 
+        {/* Recent Clients */}
+        {!search && recentClients.length > 0 && (
+          <>
+            <CommandSeparator />
+            <CommandGroup heading="Recent Clients">
+              {recentClients.map((entity) => (
+                <CommandItem
+                  key={`recent-client-${entity.id}`}
+                  onSelect={() => {
+                    navigate(entity.url);
+                    setOpen(false);
+                  }}
+                  data-testid={`command-recent-client-${entity.id}`}
+                >
+                  <Users className="h-4 w-4" />
+                  <span>{entity.title}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </>
+        )}
+
+        {/* Recent Projects */}
+        {!search && recentProjects.length > 0 && (
+          <>
+            <CommandSeparator />
+            <CommandGroup heading="Recent Projects">
+              {recentProjects.map((entity) => (
+                <CommandItem
+                  key={`recent-project-${entity.id}`}
+                  onSelect={() => {
+                    navigate(entity.url);
+                    setOpen(false);
+                  }}
+                  data-testid={`command-recent-project-${entity.id}`}
+                >
+                  <Folder className="h-4 w-4" />
+                  <span>{entity.title}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </>
+        )}
+
+        {/* Recent Invoices */}
+        {!search && recentInvoices.length > 0 && (
+          <>
+            <CommandSeparator />
+            <CommandGroup heading="Recent Invoices">
+              {recentInvoices.map((entity) => (
+                <CommandItem
+                  key={`recent-invoice-${entity.id}`}
+                  onSelect={() => {
+                    navigate(entity.url);
+                    setOpen(false);
+                  }}
+                  data-testid={`command-recent-invoice-${entity.id}`}
+                >
+                  <FileText className="h-4 w-4" />
+                  <span>{entity.title}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </>
+        )}
+
+        {/* Recent Tasks */}
+        {!search && recentTasks.length > 0 && (
+          <>
+            <CommandSeparator />
+            <CommandGroup heading="Recent Tasks">
+              {recentTasks.map((entity) => (
+                <CommandItem
+                  key={`recent-task-${entity.id}`}
+                  onSelect={() => {
+                    navigate(entity.url);
+                    setOpen(false);
+                  }}
+                  data-testid={`command-recent-task-${entity.id}`}
+                >
+                  <Clock className="h-4 w-4" />
+                  <span>{entity.title}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </>
+        )}
+
+        {/* Server-side Search Results */}
+        {search && isSearching && (
+          <div className="p-4 flex items-center justify-center text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            <span>Searching...</span>
+          </div>
+        )}
+
         {/* Search Results - Tasks */}
-        {filteredTasks.length > 0 && (
+        {search && groupedResults.tasks.length > 0 && (
           <>
             <CommandSeparator />
             <CommandGroup heading="Tasks">
-              {filteredTasks.map((task) => (
+              {groupedResults.tasks.map((result) => (
                 <CommandItem
-                  key={task.id}
-                  onSelect={() => {
-                    savePageVisit(task.title, "/tasks", "Clock");
-                    navigate("/tasks");
-                    setOpen(false);
-                  }}
-                  data-testid={`command-task-${task.id}`}
+                  key={result.id}
+                  onSelect={() => handleSearchResultSelect(result)}
+                  data-testid={`command-task-${result.id}`}
                 >
                   <Clock className="h-4 w-4" />
-                  <span>{task.title}</span>
-                  {task.priority === "high" && (
+                  <span>{result.title}</span>
+                  {result.metadata?.priority === "high" && (
                     <Badge className="ml-auto bg-red-100 text-red-800 text-xs">High</Badge>
                   )}
-                  {task.completed && (
+                  {result.metadata?.status === "completed" && (
                     <Badge className="ml-auto bg-green-100 text-green-800 text-xs">Done</Badge>
                   )}
                 </CommandItem>
@@ -532,22 +683,21 @@ export function CommandPalette() {
         )}
 
         {/* Search Results - Projects */}
-        {filteredProjects.length > 0 && (
+        {search && groupedResults.projects.length > 0 && (
           <>
             <CommandSeparator />
             <CommandGroup heading="Projects">
-              {filteredProjects.map((project) => (
+              {groupedResults.projects.map((result) => (
                 <CommandItem
-                  key={project.id}
-                  onSelect={() => {
-                    savePageVisit(project.name, `/project/${project.id}`, "Folder");
-                    navigate(`/project/${project.id}`);
-                    setOpen(false);
-                  }}
-                  data-testid={`command-project-${project.id}`}
+                  key={result.id}
+                  onSelect={() => handleSearchResultSelect(result)}
+                  data-testid={`command-project-${result.id}`}
                 >
                   <Folder className="h-4 w-4" />
-                  <span>{project.name}</span>
+                  <span>{result.title}</span>
+                  {result.metadata?.status && (
+                    <Badge className="ml-auto" variant="secondary">{result.metadata.status}</Badge>
+                  )}
                 </CommandItem>
               ))}
             </CommandGroup>
@@ -555,22 +705,23 @@ export function CommandPalette() {
         )}
 
         {/* Search Results - Clients */}
-        {filteredClients.length > 0 && (
+        {search && groupedResults.clients.length > 0 && (
           <>
             <CommandSeparator />
             <CommandGroup heading="Clients">
-              {filteredClients.map((client) => (
+              {groupedResults.clients.map((result) => (
                 <CommandItem
-                  key={client.id}
-                  onSelect={() => {
-                    savePageVisit(client.name, `/client/${client.id}`, "Users");
-                    navigate(`/client/${client.id}`);
-                    setOpen(false);
-                  }}
-                  data-testid={`command-client-${client.id}`}
+                  key={result.id}
+                  onSelect={() => handleSearchResultSelect(result)}
+                  data-testid={`command-client-${result.id}`}
                 >
                   <Users className="h-4 w-4" />
-                  <span>{client.name}</span>
+                  <span>{result.title}</span>
+                  {result.description && (
+                    <span className="ml-2 text-xs text-muted-foreground truncate max-w-[200px]">
+                      {result.description}
+                    </span>
+                  )}
                 </CommandItem>
               ))}
             </CommandGroup>
@@ -578,25 +729,40 @@ export function CommandPalette() {
         )}
 
         {/* Search Results - Invoices */}
-        {filteredInvoices.length > 0 && (
+        {search && groupedResults.invoices.length > 0 && (
           <>
             <CommandSeparator />
             <CommandGroup heading="Invoices">
-              {filteredInvoices.map((invoice) => (
+              {groupedResults.invoices.map((result) => (
                 <CommandItem
-                  key={invoice.id}
-                  onSelect={() => {
-                    savePageVisit(`Invoice #${invoice.invoiceNumber}`, `/invoices/${invoice.id}`, "FileText");
-                    navigate(`/invoices/${invoice.id}`);
-                    setOpen(false);
-                  }}
-                  data-testid={`command-invoice-${invoice.id}`}
+                  key={result.id}
+                  onSelect={() => handleSearchResultSelect(result)}
+                  data-testid={`command-invoice-${result.id}`}
                 >
                   <FileText className="h-4 w-4" />
-                  <span>Invoice #{invoice.invoiceNumber}</span>
-                  <Badge className="ml-auto" variant="secondary">
-                    {invoice.status}
-                  </Badge>
+                  <span>{result.title}</span>
+                  {result.metadata?.status && (
+                    <Badge className="ml-auto" variant="secondary">{result.metadata.status}</Badge>
+                  )}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </>
+        )}
+
+        {/* Search Results - Messages */}
+        {search && groupedResults.messages.length > 0 && (
+          <>
+            <CommandSeparator />
+            <CommandGroup heading="Messages">
+              {groupedResults.messages.map((result) => (
+                <CommandItem
+                  key={result.id}
+                  onSelect={() => handleSearchResultSelect(result)}
+                  data-testid={`command-message-${result.id}`}
+                >
+                  <Mail className="h-4 w-4" />
+                  <span>{result.title}</span>
                 </CommandItem>
               ))}
             </CommandGroup>

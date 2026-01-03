@@ -7,6 +7,7 @@ import { TaskList } from "@/components/task-list";
 import { DesktopTaskViews } from "@/components/desktop-task-views";
 import { ReminderSystem } from "@/components/reminder-system";
 import { AssignmentFilter } from "@/components/assignment-filter";
+import { FirstSuccessChecklist } from "@/components/FirstSuccessChecklist";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -15,7 +16,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Folder, AlertTriangle, Clock, CheckCircle2 } from "lucide-react";
-import type { Project, Task } from "@shared/schema";
+import type { Project, Task, User } from "@shared/schema";
 import { useAuth } from "@/hooks/useAuth";
 import { DemoUpgradePrompt } from "@/components/DemoUpgradePrompt";
 import { NewMenuButton } from "@/components/dashboard/NewMenuButton";
@@ -23,10 +24,11 @@ import { DashboardActionGrid } from "@/components/dashboard/DashboardActionGrid"
 
 export default function Home() {
   const { t } = useTranslation();
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'completed'>('all');
   const [selectedAssignee, setSelectedAssignee] = useState<string>('all');
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(true);
 
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
@@ -89,6 +91,13 @@ export default function Home() {
         <div className="mb-6 sm:mb-8">
           <DemoUpgradePrompt context="general" compact={true} />
         </div>
+
+        {/* First Success Onboarding Checklist */}
+        {showOnboarding && !user?.hasCompletedOnboarding && (
+          <div className="mb-6 sm:mb-8">
+            <FirstSuccessChecklist onDismiss={() => setShowOnboarding(false)} />
+          </div>
+        )}
 
         {/* Urgent & Overview Section - 4 KPIs only */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-8 lg:mb-12">
