@@ -10,7 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Badge } from "@/components/ui/badge";
 import { AppHeader } from "@/components/app-header";
 import { Link } from "wouter";
-import { ArrowLeft, Presentation, Plus, X, Send, Download, Eye, Monitor, ChevronUp, ChevronDown, ArrowUp, ArrowDown, Save, PenTool, Loader2, FolderOpen } from "lucide-react";
+import { ArrowLeft, Presentation, Plus, X, Send, Download, Eye, Monitor, ChevronUp, ChevronDown, ArrowUp, ArrowDown, Save, PenTool, Loader2, FolderOpen, FileText } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "@/lib/i18n";
@@ -420,9 +420,34 @@ export default function CreatePresentation() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem
-                    onClick={() => {
+                    onClick={async () => {
                       if (createdPresentationId) {
-                        window.open(`/api/presentations/${createdPresentationId}/pdf`, '_blank');
+                        try {
+                          const response = await fetch(`/api/presentations/${createdPresentationId}/pdf`, {
+                            method: 'GET',
+                            credentials: 'include',
+                          });
+                          if (!response.ok) throw new Error('Failed to download PDF');
+                          const blob = await response.blob();
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `presentation-${formData.title || 'untitled'}.pdf`;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(url);
+                          toast({
+                            title: "PDF Downloaded",
+                            description: "Your presentation has been downloaded as a PDF.",
+                          });
+                        } catch (error) {
+                          toast({
+                            title: "Download Failed",
+                            description: "Failed to download PDF. Please try again.",
+                            variant: "destructive",
+                          });
+                        }
                       } else {
                         toast({
                           title: "Error",
@@ -455,11 +480,54 @@ export default function CreatePresentation() {
                     <FolderOpen className="h-4 w-4 mr-2" />
                     Save to Filing Cabinet
                   </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      if (createdPresentationId) {
+                        try {
+                          const response = await fetch(`/api/presentations/${createdPresentationId}/pptx`, {
+                            method: 'GET',
+                            credentials: 'include',
+                          });
+                          if (!response.ok) throw new Error('Failed to download PowerPoint');
+                          const blob = await response.blob();
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `presentation-${formData.title || 'untitled'}.pptx`;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(url);
+                          toast({
+                            title: "PowerPoint Downloaded",
+                            description: "Your presentation has been downloaded as a PowerPoint file.",
+                          });
+                        } catch (error) {
+                          toast({
+                            title: "Download Failed",
+                            description: "Failed to download PowerPoint. Please try again.",
+                            variant: "destructive",
+                          });
+                        }
+                      } else {
+                        toast({
+                          title: "Error",
+                          description: "Please save the presentation first to export PowerPoint.",
+                          variant: "destructive",
+                        });
+                      }
+                    }}
+                    disabled={!createdPresentationId}
+                    data-testid="menu-download-pptx"
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Download PowerPoint
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Button onClick={handleSave}>
-                <Send className="h-4 w-4 mr-2" />
-                Save Presentation
+              <Button onClick={handleSave} disabled={savePresentationMutation.isPending}>
+                <Save className="h-4 w-4 mr-2" />
+                {savePresentationMutation.isPending ? "Saving..." : "Save Presentation"}
               </Button>
             </div>
           </div>
@@ -473,6 +541,15 @@ export default function CreatePresentation() {
                     <div className="text-center space-y-4">
                       <h1 className="text-4xl font-bold text-gray-900">{formData.title || "Presentation Title"}</h1>
                       <h2 className="text-xl text-gray-600">{formData.subtitle}</h2>
+                      {slide.imageUrl && (
+                        <div className="mt-4 flex justify-center">
+                          <img 
+                            src={slide.imageUrl} 
+                            alt="Slide image" 
+                            className="max-h-40 rounded-lg object-contain"
+                          />
+                        </div>
+                      )}
                       <div className="mt-8 space-y-2">
                         <p className="text-lg font-medium">{formData.author}</p>
                         <p className="text-gray-600">{formData.company}</p>
@@ -480,9 +557,20 @@ export default function CreatePresentation() {
                       </div>
                     </div>
                   ) : (
-                    <div className="space-y-6">
-                      <h2 className="text-3xl font-bold text-gray-900">{slide.title}</h2>
-                      <div className="text-lg text-gray-700 whitespace-pre-wrap">{slide.content || "Slide content goes here..."}</div>
+                    <div className="flex gap-6 h-full">
+                      <div className={`space-y-4 ${slide.imageUrl ? 'flex-1' : 'w-full'}`}>
+                        <h2 className="text-3xl font-bold text-gray-900">{slide.title}</h2>
+                        <div className="text-lg text-gray-700 whitespace-pre-wrap">{slide.content || "Slide content goes here..."}</div>
+                      </div>
+                      {slide.imageUrl && (
+                        <div className="flex-1 flex items-center justify-center">
+                          <img 
+                            src={slide.imageUrl} 
+                            alt="Slide image" 
+                            className="max-h-64 rounded-lg object-contain"
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
                   <div className="absolute bottom-4 right-4 text-sm text-gray-400">
@@ -1012,6 +1100,48 @@ export default function CreatePresentation() {
                     >
                       <FolderOpen className="h-4 w-4 mr-2" />
                       Save to Filing Cabinet
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={async () => {
+                        if (createdPresentationId) {
+                          try {
+                            const response = await fetch(`/api/presentations/${createdPresentationId}/pptx`, {
+                              method: 'GET',
+                              credentials: 'include',
+                            });
+                            if (!response.ok) throw new Error('Failed to download PowerPoint');
+                            const blob = await response.blob();
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `presentation-${formData.title || 'untitled'}.pptx`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                            toast({
+                              title: "PowerPoint Downloaded",
+                              description: "Your presentation has been downloaded as a PowerPoint file.",
+                            });
+                          } catch (error) {
+                            toast({
+                              title: "Download Failed",
+                              description: "Failed to download PowerPoint. Please try again.",
+                              variant: "destructive",
+                            });
+                          }
+                        } else {
+                          toast({
+                            title: "Save First",
+                            description: "Please save the presentation before exporting to PowerPoint.",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                      data-testid="menu-export-pptx"
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      Download PowerPoint
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

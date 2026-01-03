@@ -4588,6 +4588,118 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
     }
   });
 
+  // Download presentation as PPTX
+  app.get("/api/presentations/:id/pptx", requireAuth, async (req, res) => {
+    try {
+      // Validate ID parameter
+      if (!req.params.id || typeof req.params.id !== 'string') {
+        return res.status(400).json({ error: "Invalid presentation ID" });
+      }
+
+      // Fetch presentation with ownership check
+      let presentation = await storage.getPresentation(req.params.id, req.session.user!.id);
+      if (!presentation) {
+        return res.status(404).json({ error: "Presentation not found" });
+      }
+
+      // Import pptxgenjs dynamically
+      const PptxGenJS = (await import('pptxgenjs')).default;
+      const pptx = new PptxGenJS();
+      
+      // Set presentation properties
+      pptx.title = presentation.title || 'Untitled Presentation';
+      pptx.author = presentation.author || 'Presenter';
+      pptx.company = presentation.company || '';
+      pptx.subject = presentation.subtitle || '';
+      
+      // Parse slides
+      const slides = Array.isArray(presentation.slides) ? presentation.slides : [];
+      
+      if (slides.length === 0) {
+        // Create a default title slide if no slides exist
+        const slide = pptx.addSlide();
+        slide.addText(presentation.title || 'Untitled Presentation', {
+          x: 0.5, y: 2, w: 9, h: 1.5,
+          fontSize: 44, bold: true, color: '333333',
+          align: 'center', valign: 'middle'
+        });
+        if (presentation.subtitle) {
+          slide.addText(presentation.subtitle, {
+            x: 0.5, y: 3.5, w: 9, h: 0.8,
+            fontSize: 24, color: '666666',
+            align: 'center', valign: 'middle'
+          });
+        }
+      } else {
+        // Create slides from presentation data
+        for (let i = 0; i < slides.length; i++) {
+          const slideData = slides[i] as any;
+          const slide = pptx.addSlide();
+          
+          // Title slide (first slide with title type)
+          if (slideData.slideType === 'title' && i === 0) {
+            slide.addText(presentation.title || slideData.title || 'Title', {
+              x: 0.5, y: 2, w: 9, h: 1.5,
+              fontSize: 44, bold: true, color: '333333',
+              align: 'center', valign: 'middle'
+            });
+            if (presentation.subtitle) {
+              slide.addText(presentation.subtitle, {
+                x: 0.5, y: 3.5, w: 9, h: 0.8,
+                fontSize: 24, color: '666666',
+                align: 'center', valign: 'middle'
+              });
+            }
+            if (presentation.author || presentation.company) {
+              slide.addText(`${presentation.author || ''}\n${presentation.company || ''}`, {
+                x: 0.5, y: 4.5, w: 9, h: 1,
+                fontSize: 18, color: '888888',
+                align: 'center', valign: 'middle'
+              });
+            }
+          } else {
+            // Regular content slides
+            slide.addText(slideData.title || `Slide ${i + 1}`, {
+              x: 0.5, y: 0.3, w: 9, h: 0.8,
+              fontSize: 32, bold: true, color: '333333',
+              align: 'left', valign: 'middle'
+            });
+            
+            if (slideData.content) {
+              slide.addText(slideData.content, {
+                x: 0.5, y: 1.3, w: 9, h: 4,
+                fontSize: 18, color: '444444',
+                align: 'left', valign: 'top',
+                wrap: true
+              });
+            }
+          }
+          
+          // Add slide number
+          slide.addText(`${i + 1} / ${slides.length}`, {
+            x: 8.5, y: 5.2, w: 1, h: 0.3,
+            fontSize: 10, color: '999999',
+            align: 'right'
+          });
+        }
+      }
+      
+      // Generate PPTX buffer
+      const pptxBuffer = await pptx.write({ outputType: 'nodebuffer' }) as Buffer;
+      
+      const fileName = `presentation-${(presentation.title || 'untitled').replace(/[^a-zA-Z0-9]/g, '-')}.pptx`;
+      
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.send(pptxBuffer);
+      
+      console.log(`📊 Generated PPTX for presentation: ${presentation.title}`);
+    } catch (error) {
+      console.error("Error generating presentation PPTX:", error);
+      res.status(500).json({ error: "Failed to generate PowerPoint" });
+    }
+  });
+
   // Save presentation to Filing Cabinet
   app.post("/api/presentations/:id/save-to-filing-cabinet", requireAuth, async (req, res) => {
     try {
