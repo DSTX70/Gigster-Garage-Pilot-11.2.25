@@ -1257,11 +1257,26 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createClientDocument(insertDocument: InsertClientDocument): Promise<ClientDocument> {
-    const [document] = await db
-      .insert(clientDocuments)
-      .values(insertDocument)
-      .returning();
-    return document;
+    try {
+      console.log('📁 Filing Cabinet: Creating document with data:', JSON.stringify(insertDocument, null, 2));
+      const [document] = await db
+        .insert(clientDocuments)
+        .values(insertDocument)
+        .returning();
+      console.log('✅ Filing Cabinet: Document created successfully:', document.id);
+      return document;
+    } catch (error: any) {
+      console.error('❌ Filing Cabinet: Database error creating document:', {
+        error: error.message,
+        code: error.code,
+        detail: error.detail,
+        constraint: error.constraint,
+        table: error.table,
+        column: error.column,
+        stack: error.stack
+      });
+      throw error;
+    }
   }
 
   async updateClientDocument(id: string, updateDocument: Partial<InsertClientDocument>): Promise<ClientDocument | undefined> {
