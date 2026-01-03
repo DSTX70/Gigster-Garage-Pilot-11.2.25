@@ -4243,12 +4243,21 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
 
       console.log("[invoices#create] sending response:", responseData);
       res.status(201).json(responseData);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating draft invoice:", error);
+      console.error("Error details:", {
+        message: error?.message,
+        stack: error?.stack,
+        code: error?.code,
+        constraint: error?.constraint
+      });
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: "Invalid invoice data", details: error.errors });
       }
-      res.status(500).json({ error: "Failed to create invoice" });
+      res.status(500).json({ 
+        error: "Failed to create invoice",
+        details: error?.message || "Unknown error"
+      });
     }
   });
 
@@ -4709,9 +4718,18 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
         message: "Invoice PDF saved to Filing Cabinet successfully",
         document 
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving invoice PDF to Filing Cabinet:", error);
-      res.status(500).json({ error: "Failed to save PDF to Filing Cabinet" });
+      console.error("Error details:", {
+        message: error?.message,
+        stack: error?.stack,
+        code: error?.code,
+        constraint: error?.constraint
+      });
+      res.status(500).json({ 
+        error: "Failed to save PDF to Filing Cabinet",
+        details: error?.message || "Unknown error"
+      });
     }
   });
 
