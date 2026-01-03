@@ -128,7 +128,18 @@ export default function CreateInvoice() {
   const handleTimeImport = (selectedLogs: TimeLog[], hourlyRate: number) => {
     // Convert time logs to line items
     const newLineItems = selectedLogs.map((log, index) => {
-      const hours = Math.round((parseInt(log.duration || "0", 10) / 3600) * 100) / 100;
+      // Calculate hours from duration, or compute from start/end times as fallback
+      let hours = 0;
+      if (log.duration && parseInt(log.duration, 10) > 0) {
+        hours = Math.round((parseInt(log.duration, 10) / 3600) * 100) / 100;
+      } else if (log.startTime && log.endTime) {
+        // Calculate duration from timestamps
+        const start = new Date(log.startTime).getTime();
+        const end = new Date(log.endTime).getTime();
+        const durationSeconds = Math.floor((end - start) / 1000);
+        hours = Math.round((durationSeconds / 3600) * 100) / 100;
+      }
+      
       const amount = hours * hourlyRate;
       
       return {
