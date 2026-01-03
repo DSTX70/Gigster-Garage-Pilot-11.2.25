@@ -3398,6 +3398,47 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
     }
   });
 
+  // Get single presentation by ID
+  app.get("/api/presentations/:id", requireAuth, async (req, res) => {
+    try {
+      const presentation = await storage.getPresentation(req.params.id);
+      if (!presentation) {
+        return res.status(404).json({ error: "Presentation not found" });
+      }
+      res.json(presentation);
+    } catch (error) {
+      console.error("Error fetching presentation:", error);
+      res.status(500).json({ error: "Failed to fetch presentation" });
+    }
+  });
+
+  // Update presentation
+  app.put("/api/presentations/:id", requireAuth, async (req, res) => {
+    try {
+      const presentation = await storage.getPresentation(req.params.id);
+      if (!presentation) {
+        return res.status(404).json({ error: "Presentation not found" });
+      }
+
+      const { title, audience, objective, theme, slides } = req.body;
+      const updateData: any = {};
+      if (title !== undefined) updateData.title = title;
+      if (audience !== undefined) updateData.audience = audience;
+      if (objective !== undefined) updateData.objective = objective;
+      if (theme !== undefined) updateData.theme = theme;
+      if (slides !== undefined) updateData.slides = slides;
+
+      const updated = await storage.updatePresentation(req.params.id, updateData);
+      if (!updated) {
+        return res.status(500).json({ error: "Failed to update presentation" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating presentation:", error);
+      res.status(500).json({ error: "Failed to update presentation" });
+    }
+  });
+
   // Get contract management statistics
   app.get("/api/contracts/stats", requireAuth, async (req, res) => {
     try {
@@ -4459,7 +4500,11 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
         fileName: fileName,
         fileSize: proposalPDF.length,
         mimeType: 'application/pdf',
-        uploadedById: req.session.user!.id
+        uploadedById: req.session.user!.id,
+        metadata: {
+          sourceId: req.params.id,
+          sourceType: 'proposal'
+        }
       };
 
       const document = await storage.createClientDocument(documentData);
@@ -4540,7 +4585,11 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
         fileName: fileName,
         fileSize: contractPDF.length,
         mimeType: 'application/pdf',
-        uploadedById: req.session.user!.id
+        uploadedById: req.session.user!.id,
+        metadata: {
+          sourceId: req.params.id,
+          sourceType: 'contract'
+        }
       };
 
       const document = await storage.createClientDocument(documentData);
@@ -4761,7 +4810,11 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
         fileName: fileName,
         fileSize: presentationPDF.length,
         mimeType: 'application/pdf',
-        uploadedById: req.session.user!.id
+        uploadedById: req.session.user!.id,
+        metadata: {
+          sourceId: req.params.id,
+          sourceType: 'presentation'
+        }
       };
 
       const document = await storage.createClientDocument(documentData);
@@ -4865,7 +4918,11 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
         fileName: fileName,
         fileSize: pdfBuffer.length,
         mimeType: 'application/pdf',
-        uploadedById: req.session.user!.id
+        uploadedById: req.session.user!.id,
+        metadata: {
+          sourceId: req.params.id,
+          sourceType: 'invoice'
+        }
       };
 
       const document = await storage.createClientDocument(documentData);

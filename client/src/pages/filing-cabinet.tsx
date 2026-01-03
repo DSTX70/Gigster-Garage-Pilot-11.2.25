@@ -12,8 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link } from "wouter";
-import { FolderOpen, FileText, File, Download, Search, Calendar, User, Building, Filter, ArrowLeft, Grid, List, MoreVertical, Edit2, Trash2, Tag, Folder, Settings, Menu, Archive, Star, Eye, EyeOff, FilterX, Zap } from "lucide-react";
+import { Link, useLocation } from "wouter";
+import { FolderOpen, FileText, File, Download, Search, Calendar, User, Building, Filter, ArrowLeft, Grid, List, MoreVertical, Edit2, Trash2, Tag, Folder, Settings, Menu, Archive, Star, Eye, EyeOff, FilterX, Zap, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -86,6 +86,7 @@ export default function FilingCabinet() {
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
 
   // Virtual folders state (stored in component state for demo - would be persisted in real app)
   const [virtualFolders, setVirtualFolders] = useState<VirtualFolder[]>([
@@ -196,6 +197,43 @@ export default function FilingCabinet() {
 
   const handleEditDocument = (document: DocumentSearchResult) => {
     setEditingDocument(document);
+  };
+
+  const getEditorRoute = (document: DocumentSearchResult): string | null => {
+    const sourceId = document.metadata?.sourceId;
+    const sourceType = document.metadata?.sourceType || document.type;
+    
+    if (!sourceId) return null;
+    
+    switch (sourceType) {
+      case 'invoice':
+        return `/edit-invoice/${sourceId}`;
+      case 'proposal':
+        return `/edit-proposal/${sourceId}`;
+      case 'contract':
+        return `/edit-contract/${sourceId}`;
+      case 'presentation':
+        return `/edit-presentation/${sourceId}`;
+      default:
+        return null;
+    }
+  };
+
+  const handleOpenInEditor = (document: DocumentSearchResult) => {
+    const route = getEditorRoute(document);
+    if (route) {
+      setLocation(route);
+    } else {
+      toast({
+        title: t('error'),
+        description: "This document cannot be opened in an editor. It may have been created before this feature was available.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const canOpenInEditor = (document: DocumentSearchResult): boolean => {
+    return !!document.metadata?.sourceId;
   };
 
   const handleFolderCreate = (name: string, description?: string) => {
@@ -423,9 +461,15 @@ export default function FilingCabinet() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                {canOpenInEditor(document) && (
+                  <DropdownMenuItem onClick={() => handleOpenInEditor(document)}>
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    {t('openInEditor') || 'Open in Editor'}
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={() => setEditingDocument(document)}>
                   <Edit2 className="h-4 w-4 mr-2" />
-                  {t('edit')}
+                  {t('editProperties') || t('edit')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => window.open(document.fileUrl, '_blank')}>
                   <Eye className="h-4 w-4 mr-2" />

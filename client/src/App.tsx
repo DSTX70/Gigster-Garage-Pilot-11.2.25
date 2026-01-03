@@ -26,6 +26,9 @@ import Invoices from "@/pages/invoices";
 import InvoiceDetails from "@/pages/invoice-details";
 import InvoicePreview from "@/pages/invoice-preview";
 import EditInvoice from "@/pages/edit-invoice";
+import EditProposal from "@/pages/edit-proposal";
+import EditContract from "@/pages/edit-contract";
+import EditPresentation from "@/pages/edit-presentation";
 import Payments from "@/pages/payments";
 import CreateContract from "@/pages/create-contract";
 import CreatePresentation from "@/pages/create-presentation";
@@ -157,6 +160,9 @@ function Router() {
       <Route path="/invoices/:id/preview" component={InvoicePreview} />
       <Route path="/create-invoice" component={CreateInvoice} />
       <Route path="/edit-invoice/:id" component={EditInvoice} />
+      <Route path="/edit-proposal/:id" component={EditProposal} />
+      <Route path="/edit-contract/:id" component={EditContract} />
+      <Route path="/edit-presentation/:id" component={EditPresentation} />
       <Route path="/payments" component={Payments} />
       <Route path="/create-contract" component={CreateContract} />
       <Route path="/create-presentation" component={CreatePresentation} />
