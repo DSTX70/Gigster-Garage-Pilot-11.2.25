@@ -856,12 +856,18 @@ const baseInsertInvoiceSchema = createInsertSchema(invoices, {
   })).optional(),
 });
 
-export const insertInvoiceSchema = baseInsertInvoiceSchema.omit({
+// Base insert schema without refinement (for partial updates)
+export const baseInsertInvoiceSchemaWithoutRefinement = baseInsertInvoiceSchema.omit({
   id: true,
   createdById: true, // Backend sets this automatically from authenticated user
   createdAt: true,
   updatedAt: true
-}).refine((data) => {
+});
+
+// Partial update schema (no refinement, for PUT requests)
+export const partialInvoiceUpdateSchema = baseInsertInvoiceSchemaWithoutRefinement.partial();
+
+export const insertInvoiceSchema = baseInsertInvoiceSchemaWithoutRefinement.refine((data) => {
   // Custom validation: due date must be after invoice date
   if (data.invoiceDate && data.dueDate) {
     return new Date(data.dueDate) >= new Date(data.invoiceDate);

@@ -206,10 +206,12 @@ export default function CreateInvoice() {
         });
       }
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error("Save invoice error:", error);
+      const errorDetails = error?.message || error?.details || t('failedToSaveInvoice');
       toast({
         title: t('error'),
-        description: t('failedToSaveInvoice'),
+        description: typeof errorDetails === 'string' ? errorDetails : t('failedToSaveInvoice'),
         variant: "destructive",
       });
     },
@@ -228,10 +230,12 @@ export default function CreateInvoice() {
       // Redirect to invoices list after sending
       window.location.href = "/invoices";
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error("Send invoice error:", error);
+      const errorDetails = error?.message || error?.details || t('failedToSendInvoice');
       toast({
         title: t('error'),
-        description: t('failedToSendInvoice'),
+        description: typeof errorDetails === 'string' ? errorDetails : t('failedToSendInvoice'),
         variant: "destructive",
       });
     },
@@ -248,10 +252,12 @@ export default function CreateInvoice() {
         description: responseData.message || "Invoice PDF saved to Filing Cabinet successfully",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error("Filing cabinet error:", error);
+      const errorDetails = error?.message || error?.details || "Failed to save invoice to Filing Cabinet.";
       toast({
         title: "Error",
-        description: "Failed to save invoice to Filing Cabinet.",
+        description: typeof errorDetails === 'string' ? errorDetails : "Failed to save invoice to Filing Cabinet.",
         variant: "destructive",
       });
     },
