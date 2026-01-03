@@ -308,6 +308,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   };
 
+  // Determine if running in production (deployed)
+  const isProduction = process.env.NODE_ENV === 'production' || 
+                       process.env.REPLIT_DEPLOYMENT === '1' ||
+                       process.env.REPLIT_DEV_DOMAIN !== undefined;
+  
+  // Trust proxy in production for secure cookies behind Replit's proxy
+  if (isProduction) {
+    app.set('trust proxy', 1);
+    console.log('🔒 Production mode: Secure cookies enabled, trust proxy set');
+  } else {
+    console.log('🔓 Development mode: Insecure cookies (localhost)');
+  }
+  
   // Use MemoryStore for development to reduce database connection pressure
   // In production, consider using a separate Pool for session storage
   app.use(session({
@@ -315,8 +328,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: false, // Set to true in production with HTTPS
-      httpOnly: true,
+      secure: isProduction, // Secure cookies in production (HTTPS required)
+      httpOnly: true, // Prevent client-side JavaScript access
+      sameSite: 'lax', // CSRF protection (lax allows OAuth redirects)
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
   }));
@@ -593,12 +607,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/admin/diagnostics - Admin-only diagnostics endpoint
-  app.get("/api/admin/diagnostics", requireAuth, async (req: any, res) => {
-    const user = req.session.user;
-    if (user.role !== "admin") {
-      return res.status(403).json({ message: "Admin access required" });
-    }
-
+  app.get("/api/admin/diagnostics", requireAdmin, async (req: any, res) => {
     const uptimeSeconds = Math.floor((Date.now() - serverStartTime) / 1000);
     
     let dbConnected = false;
@@ -853,7 +862,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/diagnostics", requireAuth, (req, res) => {
+  app.post("/api/admin/diagnostics", requireAdmin, (req, res) => {
     const body = req.body || {};
     const events = Array.isArray(body.events) ? body.events : [];
 

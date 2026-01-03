@@ -16,6 +16,13 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  
+  // Get redirect target from query params (for mobile auth flow)
+  const getRedirectTarget = (): string => {
+    const params = new URLSearchParams(window.location.search);
+    const next = params.get('next');
+    return next && next.startsWith('/') ? decodeURIComponent(next) : '/';
+  };
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: { username: string; password: string }) => {
@@ -27,9 +34,10 @@ export default function Login() {
         title: "Login successful",
         description: "Welcome to Gigster Garage",
       });
-      // Force navigation to home page after successful login
+      // Redirect to next target or home page after successful login
+      const redirectTo = getRedirectTarget();
       setTimeout(() => {
-        setLocation("/");
+        setLocation(redirectTo);
       }, 100);
     },
     onError: (error: Error) => {

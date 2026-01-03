@@ -85,27 +85,10 @@ import MobileWorkflows from "@/pages/mobile-workflows";
 
 function Router() {
   const [location, setLocation] = useLocation();
-
-  // Check if we're on a mobile route - handle these first without authentication
-  const isMobileRoute = location.startsWith('/mobile');
-
-  // For mobile routes, show them immediately without any authentication checks
-  if (isMobileRoute) {
-    return (
-      <Switch>
-        <Route path="/mobile" component={MobileHome} />
-        <Route path="/mobile/dashboard" component={MobileDashboard} />
-        <Route path="/mobile/tasks" component={MobileTasks} />
-        <Route path="/mobile/projects" component={MobileProjects} />
-        <Route path="/mobile/time-tracking" component={MobileTimeTracking} />
-        <Route path="/mobile/workflows" component={MobileWorkflows} />
-        <Route component={MobileHome} />
-      </Switch>
-    );
-  }
-
-  // Only call useAuth for non-mobile routes
   const { user, isAuthenticated, isLoading, isFetching, isAdmin } = useAuth();
+  
+  // Check if we're on a mobile route
+  const isMobileRoute = location.startsWith('/mobile');
 
   // Redirect authenticated users away from login/signup pages
   useEffect(() => {
@@ -113,6 +96,14 @@ function Router() {
       setLocation('/');
     }
   }, [isAuthenticated, location, setLocation]);
+  
+  // Redirect unauthenticated mobile users to login with return path
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated && isMobileRoute) {
+      const encodedNext = encodeURIComponent(location);
+      setLocation(`/login?next=${encodedNext}`);
+    }
+  }, [isLoading, isAuthenticated, isMobileRoute, location, setLocation]);
 
   // Dual-phase onboarding guard: enforce quick-start unless user just completed (during refetch)
   useEffect(() => {
@@ -206,6 +197,15 @@ function Router() {
       <Route path="/settings/connections" component={ConnectionsPage} />
       <Route path="/monitoring" component={MonitoringDashboard} />
       {isAdmin && <Route path="/dashboard" component={Dashboard} />}
+      
+      {/* Mobile Routes (authenticated) */}
+      <Route path="/mobile" component={MobileHome} />
+      <Route path="/mobile/dashboard" component={MobileDashboard} />
+      <Route path="/mobile/tasks" component={MobileTasks} />
+      <Route path="/mobile/projects" component={MobileProjects} />
+      <Route path="/mobile/time-tracking" component={MobileTimeTracking} />
+      <Route path="/mobile/workflows" component={MobileWorkflows} />
+      
       <Route component={NotFound} />
     </Switch>
   );
