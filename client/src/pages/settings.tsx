@@ -33,6 +33,7 @@ import {
   Info,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { IntegrationDashboard } from "@/components/IntegrationDashboard";
 
 export default function Settings() {
   const { user } = useAuth();
@@ -570,46 +571,7 @@ export default function Settings() {
 
           {/* Integrations Tab */}
           <TabsContent value="integrations" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Connected Services</CardTitle>
-                <CardDescription>Manage your third-party integrations</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Mail className="h-8 w-8 text-orange-500" />
-                    <div>
-                      <h4 className="font-medium">SendGrid</h4>
-                      <p className="text-sm text-gray-500">Email delivery service</p>
-                    </div>
-                  </div>
-                  <Badge variant="secondary">Not Configured</Badge>
-                </div>
-
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Smartphone className="h-8 w-8 text-blue-500" />
-                    <div>
-                      <h4 className="font-medium">Twilio</h4>
-                      <p className="text-sm text-gray-500">SMS notifications</p>
-                    </div>
-                  </div>
-                  <Badge variant="secondary">Not Configured</Badge>
-                </div>
-
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Zap className="h-8 w-8 text-purple-500" />
-                    <div>
-                      <h4 className="font-medium">Slack</h4>
-                      <p className="text-sm text-gray-500">Team communication</p>
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm">Connect</Button>
-                </div>
-              </CardContent>
-            </Card>
+            <IntegrationDashboard />
           </TabsContent>
 
           {/* Data Tab */}

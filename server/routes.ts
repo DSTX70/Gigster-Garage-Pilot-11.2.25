@@ -446,17 +446,150 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // GET /api/system/status - Configuration status for all integrations (no secret values)
   app.get("/api/system/status", (req, res) => {
+    const getMissingSecrets = (required: string[]) => 
+      required.filter(key => !process.env[key]);
+
+    const integrations = {
+      database: {
+        configured: !!process.env.DATABASE_URL,
+        enables: ["Data persistence", "User accounts", "All core features"],
+        missingSecrets: getMissingSecrets(["DATABASE_URL"]),
+      },
+      ai: {
+        configured: !!(process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY),
+        enables: ["AI-powered proposals", "Gigster Coach", "Smart suggestions"],
+        missingSecrets: process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY ? [] : ["OPENAI_API_KEY"],
+      },
+      email: {
+        configured: !!(process.env.SENDGRID_API_KEY || process.env.SENDGRID_API_KEY_2),
+        enables: ["Email notifications", "Invoice delivery", "Team invitations"],
+        missingSecrets: process.env.SENDGRID_API_KEY || process.env.SENDGRID_API_KEY_2 ? [] : ["SENDGRID_API_KEY"],
+      },
+      sms: {
+        configured: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER),
+        enables: ["SMS notifications", "Reminders", "Verification codes"],
+        missingSecrets: getMissingSecrets(["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_PHONE_NUMBER"]),
+      },
+      stripe: {
+        configured: !!process.env.STRIPE_SECRET_KEY,
+        enables: ["Online payments", "Invoice pay links", "Subscription billing"],
+        missingSecrets: getMissingSecrets(["STRIPE_SECRET_KEY"]),
+      },
+      slack: {
+        configured: !!process.env.SLACK_BOT_TOKEN,
+        enables: ["Slack notifications", "Team updates", "Channel integration"],
+        missingSecrets: getMissingSecrets(["SLACK_BOT_TOKEN"]),
+      },
+      social: {
+        x: {
+          configured: !!(process.env.X_API_KEY && process.env.X_API_SECRET),
+          enables: ["X/Twitter posting", "Social scheduling"],
+          missingSecrets: getMissingSecrets(["X_API_KEY", "X_API_SECRET", "X_ACCESS_TOKEN", "X_ACCESS_SECRET"]),
+        },
+        instagram: {
+          configured: !!(process.env.INSTAGRAM_ACCESS_TOKEN && process.env.INSTAGRAM_ACCOUNT_ID),
+          enables: ["Instagram posting", "Media sharing"],
+          missingSecrets: getMissingSecrets(["INSTAGRAM_ACCESS_TOKEN", "INSTAGRAM_ACCOUNT_ID"]),
+        },
+        linkedin: {
+          configured: !!process.env.LINKEDIN_ACCESS_TOKEN,
+          enables: ["LinkedIn posting", "Professional updates"],
+          missingSecrets: getMissingSecrets(["LINKEDIN_ACCESS_TOKEN"]),
+        },
+      },
+      objectStorage: {
+        configured: !!process.env.PRIVATE_OBJECT_DIR,
+        enables: ["File uploads", "Document storage", "Media assets"],
+        missingSecrets: getMissingSecrets(["PRIVATE_OBJECT_DIR"]),
+      },
+    };
+
     res.json({
       storageMode: getStorageMode(),
-      database: !!process.env.DATABASE_URL,
-      ai: !!(process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY),
-      email: !!(process.env.SENDGRID_API_KEY || process.env.SENDGRID_API_KEY_2),
-      sms: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN),
-      stripe: !!process.env.STRIPE_SECRET_KEY,
-      objectStorage: !!process.env.PRIVATE_OBJECT_DIR,
-      slack: !!process.env.SLACK_BOT_TOKEN,
+      integrations,
+      // Legacy flat booleans for backward compatibility
+      database: integrations.database.configured,
+      ai: integrations.ai.configured,
+      email: integrations.email.configured,
+      sms: integrations.sms.configured,
+      stripe: integrations.stripe.configured,
+      objectStorage: integrations.objectStorage.configured,
+      slack: integrations.slack.configured,
       dth: !!process.env.DTH_READONLY_TOKEN,
     });
+  });
+
+  // POST /api/notifications/test-email - Test email configuration
+  app.post("/api/notifications/test-email", requireAuth, async (req: any, res) => {
+    const user = req.session.user;
+    
+    if (!process.env.SENDGRID_API_KEY && !process.env.SENDGRID_API_KEY_2) {
+      return res.status(400).json({
+        success: false,
+        message: "Email not configured",
+        missingSecrets: ["SENDGRID_API_KEY"],
+      });
+    }
+
+    try {
+      const { sendCustomEmail } = await import("./emailService");
+      const testEmail = req.body.email || user.email;
+      
+      if (!testEmail) {
+        return res.status(400).json({ success: false, message: "No email address provided" });
+      }
+
+      const success = await sendCustomEmail(
+        testEmail,
+        "Gigster Garage - Test Email",
+        `This is a test email from Gigster Garage.\n\nSent at: ${new Date().toISOString()}\nUser: ${user.name || user.email}`,
+        `<div style="font-family: sans-serif; padding: 20px;">
+          <h2 style="color: #0B1D3A;">Test Email from Gigster Garage</h2>
+          <p>This confirms your email integration is working correctly.</p>
+          <p style="color: #666;">Sent at: ${new Date().toISOString()}</p>
+        </div>`
+      );
+
+      if (success) {
+        res.json({ success: true, message: `Test email sent to ${testEmail}`, timestamp: new Date().toISOString() });
+      } else {
+        res.status(500).json({ success: false, message: "Email failed to send. Check server logs." });
+      }
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message || "Failed to send test email" });
+    }
+  });
+
+  // POST /api/notifications/test-sms - Test SMS configuration  
+  app.post("/api/notifications/test-sms", requireAuth, async (req: any, res) => {
+    const missingSecrets: string[] = [];
+    if (!process.env.TWILIO_ACCOUNT_SID) missingSecrets.push("TWILIO_ACCOUNT_SID");
+    if (!process.env.TWILIO_AUTH_TOKEN) missingSecrets.push("TWILIO_AUTH_TOKEN");
+    if (!process.env.TWILIO_PHONE_NUMBER) missingSecrets.push("TWILIO_PHONE_NUMBER");
+    
+    if (missingSecrets.length > 0) {
+      return res.status(400).json({ success: false, message: "SMS not configured", missingSecrets });
+    }
+
+    try {
+      const phoneNumber = req.body.phoneNumber;
+      if (!phoneNumber) {
+        return res.status(400).json({ success: false, message: "Phone number is required" });
+      }
+
+      const twilio = (await import("twilio")).default;
+      const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+      
+      await client.messages.create({
+        body: `Gigster Garage test message - ${new Date().toLocaleTimeString()}`,
+        from: process.env.TWILIO_PHONE_NUMBER,
+        to: phoneNumber,
+      });
+
+      res.json({ success: true, message: `Test SMS sent to ${phoneNumber}`, timestamp: new Date().toISOString() });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message || "Failed to send test SMS" });
+    }
   });
 
   // GET /api/admin/diagnostics - Admin-only diagnostics endpoint
