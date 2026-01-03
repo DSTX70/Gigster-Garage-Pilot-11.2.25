@@ -4557,6 +4557,37 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
     }
   });
 
+  // Download presentation as PDF
+  app.get("/api/presentations/:id/pdf", requireAuth, async (req, res) => {
+    try {
+      // Validate ID parameter
+      if (!req.params.id || typeof req.params.id !== 'string') {
+        return res.status(400).json({ error: "Invalid presentation ID" });
+      }
+
+      // Fetch presentation with ownership check
+      let presentation = await storage.getPresentation(req.params.id, req.session.user!.id);
+      if (!presentation) {
+        return res.status(404).json({ error: "Presentation not found" });
+      }
+
+      // Generate PDF
+      const presentationPDF = await generatePresentationPDF({
+        ...presentation,
+        author: presentation.author || 'Presenter',
+      });
+      
+      const fileName = `presentation-${presentation.title.replace(/[^a-zA-Z0-9]/g, '-')}.pdf`;
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.send(presentationPDF);
+    } catch (error) {
+      console.error("Error generating presentation PDF:", error);
+      res.status(500).json({ error: "Failed to generate PDF" });
+    }
+  });
+
   // Save presentation to Filing Cabinet
   app.post("/api/presentations/:id/save-to-filing-cabinet", requireAuth, async (req, res) => {
     try {

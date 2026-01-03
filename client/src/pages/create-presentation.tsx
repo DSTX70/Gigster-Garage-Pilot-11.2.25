@@ -61,8 +61,8 @@ export default function CreatePresentation() {
   const [isGeneratingObjective, setIsGeneratingObjective] = useState(false);
   const [generatingSlideContent, setGeneratingSlideContent] = useState<{ [key: number]: boolean }>({});
   
-  // Slide expansion states
-  const [expandedSlides, setExpandedSlides] = useState<{ [key: number]: boolean }>({});
+  // Slide expansion states - expanded by default to show Notes and Image upload
+  const [expandedSlides, setExpandedSlides] = useState<{ [key: number]: boolean }>({ 1: true, 2: true });
 
   // Fetch projects
   const { data: projects = [] } = useQuery<Project[]>({
@@ -81,6 +81,8 @@ export default function CreatePresentation() {
       slideType: 'content', 
       order: newOrder 
     }]);
+    // Auto-expand new slides to show Notes and Image upload
+    setExpandedSlides(prev => ({ ...prev, [newId]: true }));
   };
 
   // Generate all slides with AI
@@ -142,6 +144,10 @@ export default function CreatePresentation() {
 
       if (generatedSlides.length > 0) {
         setSlides(generatedSlides);
+        // Auto-expand all generated slides to show Notes and Image upload
+        const expandAll: { [key: number]: boolean } = {};
+        generatedSlides.forEach(slide => { expandAll[slide.id] = true; });
+        setExpandedSlides(expandAll);
         toast({
           title: "Slides Generated!",
           description: `AI created ${generatedSlides.length} slides for your presentation.`,
@@ -948,9 +954,34 @@ export default function CreatePresentation() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="center">
                     <DropdownMenuItem
-                      onClick={() => {
+                      onClick={async () => {
                         if (createdPresentationId) {
-                          window.open(`/api/presentations/${createdPresentationId}/pdf`, '_blank');
+                          try {
+                            const response = await fetch(`/api/presentations/${createdPresentationId}/pdf`, {
+                              method: 'GET',
+                              credentials: 'include',
+                            });
+                            if (!response.ok) throw new Error('Failed to download PDF');
+                            const blob = await response.blob();
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `presentation-${formData.title || 'untitled'}.pdf`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                            toast({
+                              title: "PDF Downloaded",
+                              description: "Your presentation has been downloaded as a PDF.",
+                            });
+                          } catch (error) {
+                            toast({
+                              title: "Download Failed",
+                              description: "Failed to download PDF. Please try again.",
+                              variant: "destructive",
+                            });
+                          }
                         } else {
                           toast({
                             title: "Save First",
