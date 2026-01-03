@@ -42,7 +42,7 @@ Security features include a two-tier resource permission model (OWNED/SHARED), a
 -   **Time Tracking**: Comprehensive time tracking with project allocation and productivity reporting.
 -   **Workflow Automation**: Custom rules and automation engine with a visual builder.
 -   **AI Content Generation**: Proposal and content creation using stable AI models (GPT-4o).
--   **Invoice Builder**: Auto-fill functionality for company and client information.
+-   **Invoice Builder**: Auto-fill functionality for company and client information. Browser-free PDF generation via pdfkit (`server/pdfkitService.ts`) for autoscale-compatible production deployments.
 -   **Task Management**: Advanced features including priority, due dates, assignments, notes, attachments, intelligent reminders, subtask hierarchies, and circular dependency prevention.
 -   **Agent KPI Tracking**: Monitoring system with automated graduation tracking and real-time Hub API integration.
 -   **Agent Exposure Policy**: Policy-based agent governance system with autonomy levels (L0/L1), exposure rules, and promotion criteria defined in `policy/agent_exposure_policy.json`.
@@ -90,3 +90,4 @@ The application uses PostgreSQL with Drizzle ORM for its database, providing typ
 -   **openai**: OpenAI API integration (using GPT-4o).
 -   **SendGrid**: Email notifications.
 -   **Twilio**: SMS notifications.
+-   **pdfkit**: Browser-free PDF generation for invoices, proposals, contracts, and presentations.
