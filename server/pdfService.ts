@@ -82,6 +82,41 @@ async function checkBrowserHealth(): Promise<boolean> {
   }
 }
 
+// Try to find a working Chrome/Chromium executable
+async function findChromiumExecutable(): Promise<string | undefined> {
+  const fs = await import('fs');
+  
+  // List of potential Chrome/Chromium paths to try
+  const possiblePaths = [
+    // Puppeteer's bundled chromium (if available)
+    puppeteer.executablePath(),
+    // Common Nix store paths (development)
+    '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
+    // Standard Linux paths
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/usr/bin/google-chrome',
+    '/usr/bin/google-chrome-stable',
+    // Snap paths
+    '/snap/bin/chromium',
+  ];
+  
+  for (const chromePath of possiblePaths) {
+    if (chromePath) {
+      try {
+        await fs.promises.access(chromePath, fs.constants.X_OK);
+        console.log(`Found Chromium at: ${chromePath}`);
+        return chromePath;
+      } catch {
+        // Path doesn't exist or isn't executable, try next
+      }
+    }
+  }
+  
+  console.warn('No Chromium executable found in any known location');
+  return undefined;
+}
+
 // Initialize browser instance with timeout and error handling
 async function getBrowser(): Promise<Browser> {
   const now = Date.now();
@@ -103,12 +138,18 @@ async function getBrowser(): Promise<Browser> {
   }
   
   if (!browser) {
+    const executablePath = await findChromiumExecutable();
+    
+    if (!executablePath) {
+      throw new Error('No Chromium browser found. PDF generation requires Chrome/Chromium to be installed.');
+    }
+    
     try {
-      console.log('Launching new browser instance...');
+      console.log(`Launching browser from: ${executablePath}`);
       browser = await withTimeout(
         puppeteer.launch({
           headless: true,
-          executablePath: '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
+          executablePath,
           args: [
             '--no-sandbox',
             '--disable-setuid-sandbox', 

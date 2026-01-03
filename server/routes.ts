@@ -4659,7 +4659,21 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
         paymentUrl: `${req.protocol}://${req.get('host')}/pay-invoice?link=${invoice.paymentLink}`
       };
 
-      const pdfBuffer = await generateInvoicePDF(invoiceWithPaymentUrl);
+      let pdfBuffer: Buffer;
+      try {
+        pdfBuffer = await generateInvoicePDF(invoiceWithPaymentUrl);
+      } catch (pdfError: any) {
+        console.error("PDF generation failed:", pdfError?.message);
+        // Check if it's a browser/Chromium issue
+        if (pdfError?.message?.includes('Chromium') || pdfError?.message?.includes('browser')) {
+          return res.status(503).json({ 
+            error: "PDF generation unavailable",
+            details: "PDF generation requires Chromium which is not available in the current environment. The invoice has been saved successfully - you can download it from the Invoices page.",
+            invoiceId: invoice.id
+          });
+        }
+        throw pdfError;
+      }
       
       console.log('🚀 NEW FILING CABINET CODE: Starting PDF save to filesystem');
       
