@@ -5773,25 +5773,17 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
       const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
       const fileName = `agency-visual-${Date.now()}.png`;
       
-      // Save image to object storage
+      // Save image to object storage using filesystem-backed service
       const objectStorageService = new ObjectStorageService();
-      const privateDir = objectStorageService.getPrivateObjectDir();
-      const objectPath = `${privateDir}/${req.session.user!.id}/agency-visuals/${fileName}`;
+      const objectKey = `${req.session.user!.id}/agency-visuals/${fileName}`;
       
-      // Parse object path for upload
-      const { bucketName, objectName } = parseObjectPath(objectPath);
-      const bucket = objectStorageClient.bucket(bucketName);
-      const file = bucket.file(objectName);
-      
-      // Upload the image buffer
-      await file.save(imageBuffer, {
-        metadata: {
-          contentType: 'image/png'
-        }
+      // Upload the image buffer using put method
+      const savedPath = await objectStorageService.put(objectKey, imageBuffer, {
+        contentType: 'image/png'
       });
 
       // Create document record in Filing Cabinet 
-      const fileUrl = file.publicUrl();
+      const fileUrl = `/api/objects/${objectKey}`;
       
       // Create a default client for Agency Hub visuals if needed
       console.log('Creating client for Agency Hub visual Filing Cabinet document');
@@ -5876,22 +5868,16 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
         finalFileName = fileName || `${name.replace(/[^a-zA-Z0-9]/g, '-')}.txt`;
       }
 
-      // Save to object storage
+      // Save to object storage using filesystem-backed service
       const objectStorageService = new ObjectStorageService();
-      const privateDir = objectStorageService.getPrivateObjectDir();
-      const objectPath = `${privateDir}/${req.session.user!.id}/filing-cabinet/${Date.now()}-${finalFileName}`;
+      const objectKey = `${req.session.user!.id}/filing-cabinet/${Date.now()}-${finalFileName}`;
       
-      const { bucketName, objectName } = parseObjectPath(objectPath);
-      const bucket = objectStorageClient.bucket(bucketName);
-      const file = bucket.file(objectName);
-      
-      await file.save(fileBuffer, {
-        metadata: {
-          contentType: finalMimeType
-        }
+      // Upload using put method
+      await objectStorageService.put(objectKey, fileBuffer, {
+        contentType: finalMimeType
       });
 
-      const fileUrl = file.publicUrl();
+      const fileUrl = `/api/objects/${objectKey}`;
 
       // Get or create client for generated content
       let existingClients = await storage.getClients();
