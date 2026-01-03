@@ -90,6 +90,8 @@ async function findChromiumExecutable(): Promise<string | undefined> {
   const possiblePaths = [
     // Puppeteer's bundled chromium (if available)
     puppeteer.executablePath(),
+    // Nix store chromium (for Replit)
+    process.env.PUPPETEER_EXECUTABLE_PATH,
     // Common Nix store paths (development)
     '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
     // Standard Linux paths
@@ -99,7 +101,7 @@ async function findChromiumExecutable(): Promise<string | undefined> {
     '/usr/bin/google-chrome-stable',
     // Snap paths
     '/snap/bin/chromium',
-  ];
+  ].filter(Boolean);
   
   for (const chromePath of possiblePaths) {
     if (chromePath) {
@@ -115,6 +117,60 @@ async function findChromiumExecutable(): Promise<string | undefined> {
   
   console.warn('No Chromium executable found in any known location');
   return undefined;
+}
+
+// Try to launch browser with different strategies
+async function tryLaunchBrowser(): Promise<Browser> {
+  const launchArgs = [
+    '--no-sandbox',
+    '--disable-setuid-sandbox', 
+    '--disable-dev-shm-usage',
+    '--disable-gpu',
+    '--disable-web-security',
+    '--disable-features=VizDisplayCompositor',
+    '--no-first-run',
+    '--no-default-browser-check',
+    '--disable-extensions',
+    '--single-process', // Important for containerized environments
+  ];
+
+  // Strategy 1: Try with Puppeteer's bundled Chromium (no executablePath)
+  try {
+    console.log('Attempting to launch with Puppeteer bundled Chromium...');
+    const launchedBrowser = await withTimeout(
+      puppeteer.launch({
+        headless: true,
+        args: launchArgs,
+      }),
+      30000
+    );
+    console.log('Successfully launched with Puppeteer bundled Chromium');
+    return launchedBrowser;
+  } catch (error) {
+    console.log('Puppeteer bundled Chromium failed:', error instanceof Error ? error.message : error);
+  }
+
+  // Strategy 2: Try with explicitly found executable
+  const executablePath = await findChromiumExecutable();
+  if (executablePath) {
+    try {
+      console.log(`Attempting to launch with explicit path: ${executablePath}`);
+      const launchedBrowser = await withTimeout(
+        puppeteer.launch({
+          headless: true,
+          executablePath,
+          args: launchArgs,
+        }),
+        30000
+      );
+      console.log(`Successfully launched with: ${executablePath}`);
+      return launchedBrowser;
+    } catch (error) {
+      console.log(`Launch with ${executablePath} failed:`, error instanceof Error ? error.message : error);
+    }
+  }
+
+  throw new Error('No Chromium browser found. PDF generation requires Chrome/Chromium to be installed.');
 }
 
 // Initialize browser instance with timeout and error handling
@@ -138,36 +194,10 @@ async function getBrowser(): Promise<Browser> {
   }
   
   if (!browser) {
-    const executablePath = await findChromiumExecutable();
-    
-    if (!executablePath) {
-      throw new Error('No Chromium browser found. PDF generation requires Chrome/Chromium to be installed.');
-    }
-    
     try {
-      console.log(`Launching browser from: ${executablePath}`);
-      browser = await withTimeout(
-        puppeteer.launch({
-          headless: true,
-          executablePath,
-          args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox', 
-            '--disable-dev-shm-usage',
-            '--disable-gpu',
-            '--disable-web-security',
-            '--disable-features=VizDisplayCompositor',
-            '--no-first-run',
-            '--no-default-browser-check',
-            '--disable-extensions'
-          ]
-        }),
-        30000 // 30 second timeout for browser launch
-      );
-      
+      browser = await tryLaunchBrowser();
       browserHealthy = true;
       lastHealthCheck = now;
-      console.log('Browser launched successfully');
       
       // Handle browser disconnect
       browser.on('disconnected', () => {
@@ -180,7 +210,7 @@ async function getBrowser(): Promise<Browser> {
       console.error('Failed to launch browser:', error);
       browser = null;
       browserHealthy = false;
-      throw new Error(`Failed to initialize PDF browser: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
     }
   }
   
