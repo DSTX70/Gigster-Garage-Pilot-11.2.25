@@ -35,11 +35,6 @@ import { BulkOperationsToolbar } from "@/components/BulkOperationsToolbar";
 import type { ClientDocument, Client } from "@shared/schema";
 import type { DocumentSearchResult } from "@/hooks/useAdvancedSearch";
 
-interface EnhancedFilingCabinetDocument extends ClientDocument {
-  client?: Client;
-  uploadedBy?: { name: string; email: string };
-}
-
 type ViewMode = 'grid' | 'list';
 
 export default function FilingCabinet() {
@@ -96,7 +91,7 @@ export default function FilingCabinet() {
   ]);
 
   // Missing state variables for filters
-  const [folderFilter, setFolderFilter] = useState<string>('');
+  const [folderFilter, setFolderFilter] = useState<string | null>('');
   const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [clientFilter, setClientFilter] = useState<string>('all');
@@ -331,7 +326,7 @@ export default function FilingCabinet() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const renderDocumentCard = (document: EnhancedFilingCabinetDocument) => (
+  const renderDocumentCard = (document: DocumentSearchResult) => (
     <Card 
       key={document.id} 
       className={`hover:shadow-lg transition-shadow ${

@@ -11,6 +11,7 @@ export interface DocumentSearchResult {
   description?: string;
   type: string;
   fileName: string;
+  fileUrl: string;
   fileSize?: number;
   mimeType?: string;
   status: string;
@@ -18,6 +19,8 @@ export interface DocumentSearchResult {
   metadata?: Record<string, any>;
   createdAt: Date;
   updatedAt: Date;
+  version?: number;
+  clientId?: string;
   client?: {
     id: string;
     name: string;

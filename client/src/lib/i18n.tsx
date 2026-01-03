@@ -434,6 +434,8 @@ type TranslationKeys = {
   noTagsAvailable: string;
   fileOrganization: string;
   clearAll: string;
+  openInEditor: string;
+  editProperties: string;
   
   // Agency Hub
   backToMyDashboard: string;
@@ -1046,6 +1048,8 @@ const translations: Record<string, TranslationKeys> = {
     noTagsAvailable: "No tags available",
     fileOrganization: "File Organization",
     clearAll: "Clear All",
+    openInEditor: "Open in Editor",
+    editProperties: "Edit Properties",
     
     // Agency Hub
     backToMyDashboard: "Back to My Dashboard",
@@ -1661,6 +1665,8 @@ const translations: Record<string, TranslationKeys> = {
     noTagsAvailable: "Sin etiquetas disponibles",
     fileOrganization: "Organización de Archivos",
     clearAll: "Limpiar Todo",
+    openInEditor: "Abrir en Editor",
+    editProperties: "Editar Propiedades",
     
     // Agency Hub
     backToMyDashboard: "Volver a Mi Panel",
@@ -2276,6 +2282,8 @@ const translations: Record<string, TranslationKeys> = {
     noTagsAvailable: "Aucun tag disponible",
     fileOrganization: "Organisation des Fichiers",
     clearAll: "Tout Effacer",
+    openInEditor: "Ouvrir dans l'Éditeur",
+    editProperties: "Modifier les Propriétés",
     
     // Agency Hub
     backToMyDashboard: "Retour à Mon Tableau de Bord",
@@ -2891,6 +2899,8 @@ const translations: Record<string, TranslationKeys> = {
     noTagsAvailable: "Keine Tags verfügbar",
     fileOrganization: "Dateiorganisation",
     clearAll: "Alle Löschen",
+    openInEditor: "Im Editor Öffnen",
+    editProperties: "Eigenschaften Bearbeiten",
     
     // Agency Hub
     backToMyDashboard: "Zurück zu Meinem Dashboard",
@@ -3506,6 +3516,8 @@ const translations: Record<string, TranslationKeys> = {
     noTagsAvailable: "Sem tags disponíveis",
     fileOrganization: "Organização de Arquivos",
     clearAll: "Limpar Tudo",
+    openInEditor: "Abrir no Editor",
+    editProperties: "Editar Propriedades",
     
     // Agency Hub
     backToMyDashboard: "Voltar ao Meu Painel",
@@ -4121,6 +4133,8 @@ const translations: Record<string, TranslationKeys> = {
     noTagsAvailable: "利用可能なタグがありません",
     fileOrganization: "ファイル整理",
     clearAll: "すべてクリア",
+    openInEditor: "エディターで開く",
+    editProperties: "プロパティを編集",
     
     // Agency Hub
     backToMyDashboard: "マイダッシュボードに戻る",
