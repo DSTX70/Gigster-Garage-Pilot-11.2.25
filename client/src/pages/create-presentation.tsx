@@ -20,6 +20,8 @@ interface Slide {
   id: number;
   title: string;
   content: string;
+  notes: string;
+  imageUrl?: string;
   slideType: 'title' | 'content' | 'image' | 'bullet-points' | 'quote' | 'conclusion';
   order: number;
 }
@@ -45,9 +47,12 @@ export default function CreatePresentation() {
 
   // Slides data
   const [slides, setSlides] = useState<Slide[]>([
-    { id: 1, title: "Introduction", content: "", slideType: 'title', order: 1 },
-    { id: 2, title: "Content Slide", content: "", slideType: 'content', order: 2 }
+    { id: 1, title: "Introduction", content: "", notes: "", slideType: 'title', order: 1 },
+    { id: 2, title: "Content Slide", content: "", notes: "", slideType: 'content', order: 2 }
   ]);
+
+  // State for generating all slides
+  const [isGeneratingAllSlides, setIsGeneratingAllSlides] = useState(false);
 
   // Character counts
   const [objectiveCount, setObjectiveCount] = useState(0);
@@ -72,9 +77,114 @@ export default function CreatePresentation() {
       id: newId, 
       title: `Slide ${newOrder}`, 
       content: "", 
+      notes: "",
       slideType: 'content', 
       order: newOrder 
     }]);
+  };
+
+  // Generate all slides with AI
+  const generateAllSlides = async () => {
+    if (!formData.title.trim()) {
+      toast({
+        title: "Title Required",
+        description: "Please enter a presentation title before generating slides.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeneratingAllSlides(true);
+    try {
+      const response = await fetch("/api/ai/generate-content", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "presentation_full_slides",
+          presentationTitle: formData.title,
+          subtitle: formData.subtitle,
+          audience: formData.audience,
+          objective: formData.objective,
+          duration: formData.duration,
+          context: `Generate a complete presentation outline with ${Math.max(5, Math.ceil(formData.duration / 5))} slides for "${formData.title}" targeting ${formData.audience || 'general audience'}. Include varied slide types: title, content, bullet-points, and conclusion.`
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to generate slides");
+      const data = await response.json();
+      
+      // Parse the AI response to create slides
+      let generatedSlides: Slide[] = [];
+      try {
+        const slidesData = JSON.parse(data.content);
+        if (Array.isArray(slidesData)) {
+          generatedSlides = slidesData.map((s: any, index: number) => ({
+            id: index + 1,
+            title: s.title || `Slide ${index + 1}`,
+            content: s.content || "",
+            notes: s.notes || "",
+            slideType: s.slideType || 'content',
+            order: index + 1
+          }));
+        }
+      } catch {
+        // If JSON parsing fails, create slides from text content
+        const lines = data.content.split('\n\n').filter((l: string) => l.trim());
+        generatedSlides = lines.slice(0, 8).map((line: string, index: number) => ({
+          id: index + 1,
+          title: line.split('\n')[0]?.replace(/^#+\s*/, '') || `Slide ${index + 1}`,
+          content: line.split('\n').slice(1).join('\n') || "",
+          notes: "",
+          slideType: index === 0 ? 'title' : index === lines.length - 1 ? 'conclusion' : 'content',
+          order: index + 1
+        }));
+      }
+
+      if (generatedSlides.length > 0) {
+        setSlides(generatedSlides);
+        toast({
+          title: "Slides Generated!",
+          description: `AI created ${generatedSlides.length} slides for your presentation.`,
+        });
+      } else {
+        toast({
+          title: "Generation Issue",
+          description: "Could not parse generated slides. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Generation Failed",
+        description: "Failed to generate slides. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingAllSlides(false);
+    }
+  };
+
+  // Handle image upload for a slide
+  const handleSlideImageUpload = async (slideId: number, file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid File",
+        description: "Please upload an image file.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      updateSlide(slideId, 'imageUrl', dataUrl);
+      toast({
+        title: "Image Added",
+        description: "Image has been added to the slide.",
+      });
+    };
+    reader.readAsDataURL(file);
   };
 
   const removeSlide = (id: number) => {
@@ -576,10 +686,32 @@ export default function CreatePresentation() {
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span>{t('slides')}</span>
-                <Button size="sm" onClick={addSlide} data-testid="button-create-slide">
-                  <Plus className="h-4 w-4 mr-2" />
-                  {t('createSlide')}
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={generateAllSlides} 
+                    disabled={isGeneratingAllSlides}
+                    data-testid="button-create-all-slides"
+                    className="bg-orange-50 border-orange-300 text-orange-700 hover:bg-orange-100"
+                  >
+                    {isGeneratingAllSlides ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      <>
+                        <PenTool className="h-4 w-4 mr-2" />
+                        Create Slides
+                      </>
+                    )}
+                  </Button>
+                  <Button size="sm" onClick={addSlide} data-testid="button-create-slide">
+                    <Plus className="h-4 w-4 mr-2" />
+                    {t('createSlide')}
+                  </Button>
+                </div>
               </CardTitle>
               <CardDescription>{t('manageSlidesDesc')}</CardDescription>
             </CardHeader>
@@ -689,7 +821,7 @@ export default function CreatePresentation() {
                         <div className="space-y-2">
                           <Label className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              Content 
+                              Slide Content 
                               <Badge variant="outline" className="text-xs">textarea</Badge>
                             </div>
                             <Button
@@ -722,6 +854,70 @@ export default function CreatePresentation() {
                             onChange={(e) => updateSlide(slide.id, 'content', e.target.value)}
                           />
                         </div>
+
+                        {/* Image Upload */}
+                        <div className="space-y-2">
+                          <Label className="flex items-center gap-2">
+                            Upload Image
+                            <Badge variant="outline" className="text-xs">optional</Badge>
+                          </Label>
+                          <div className="flex items-center gap-4">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              id={`image-upload-${slide.id}`}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleSlideImageUpload(slide.id, file);
+                              }}
+                            />
+                            <label
+                              htmlFor={`image-upload-${slide.id}`}
+                              className="flex items-center gap-2 px-4 py-2 border-2 border-dashed border-orange-300 rounded-lg cursor-pointer hover:bg-orange-50 transition-colors"
+                            >
+                              <Monitor className="h-4 w-4 text-orange-600" />
+                              <span className="text-sm text-orange-700">
+                                {slide.imageUrl ? 'Change Image' : 'Choose Image'}
+                              </span>
+                            </label>
+                            {slide.imageUrl && (
+                              <div className="flex items-center gap-2">
+                                <img 
+                                  src={slide.imageUrl} 
+                                  alt="Slide preview" 
+                                  className="h-12 w-20 object-cover rounded border border-orange-200"
+                                />
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => updateSlide(slide.id, 'imageUrl', undefined)}
+                                  className="text-red-500 hover:text-red-700"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Presenter Notes */}
+                        <div className="space-y-2">
+                          <Label className="flex items-center gap-2">
+                            Notes
+                            <Badge variant="secondary" className="text-xs">presenter only</Badge>
+                          </Label>
+                          <Textarea
+                            placeholder="Add presenter notes, reminders, and talking points for this slide..."
+                            rows={3}
+                            className="min-h-[80px] resize-y bg-blue-50 border-blue-200 focus:border-blue-500"
+                            value={slide.notes}
+                            onChange={(e) => updateSlide(slide.id, 'notes', e.target.value)}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            📝 These notes are visible only to the presenter, not in the exported slides
+                          </p>
+                        </div>
                       </CardContent>
                     )}
                   </Card>
@@ -743,10 +939,51 @@ export default function CreatePresentation() {
                   <Save className="h-4 w-4 mr-2" />
                   {savePresentationMutation.isPending ? t('saving') : t('savePresentation')}
                 </Button>
-                <Button onClick={handleSave} disabled={savePresentationMutation.isPending}>
-                  <Send className="h-4 w-4 mr-2" />
-                  {t('sendPresentation')}
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" data-testid="button-export">
+                      <Download className="h-4 w-4 mr-2" />
+                      Export
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="center">
+                    <DropdownMenuItem
+                      onClick={() => {
+                        if (createdPresentationId) {
+                          window.open(`/api/presentations/${createdPresentationId}/pdf`, '_blank');
+                        } else {
+                          toast({
+                            title: "Save First",
+                            description: "Please save the presentation before exporting to PDF.",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                      data-testid="menu-export-pdf"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Download PDF
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        if (createdPresentationId) {
+                          saveToFilingCabinetMutation.mutate(createdPresentationId);
+                        } else {
+                          toast({
+                            title: "Save First",
+                            description: "Please save the presentation before saving to Filing Cabinet.",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                      disabled={saveToFilingCabinetMutation.isPending}
+                      data-testid="menu-export-filing-cabinet"
+                    >
+                      <FolderOpen className="h-4 w-4 mr-2" />
+                      Save to Filing Cabinet
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </CardContent>
           </Card>

@@ -1100,7 +1100,25 @@ export default function AgencyHub() {
                           data-testid="button-copy-promote"
                         >
                           <Copy className="h-4 w-4 mr-2" />
-                          Copy Strategy
+                          Copy
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            const blob = new Blob([promoteContent], { type: 'text/plain' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `promotion-strategy-${Date.now()}.txt`;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                            toast({ title: t('success'), description: 'Strategy downloaded' });
+                          }}
+                          className="flex-1"
+                          data-testid="button-download-promote"
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          Download
                         </Button>
                         <SaveOptionsDialog
                           content={promoteContent}
@@ -1291,7 +1309,25 @@ export default function AgencyHub() {
                           data-testid="button-copy-insights"
                         >
                           <Copy className="h-4 w-4 mr-2" />
-                          Copy Insights
+                          Copy
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            const blob = new Blob([trackInsights], { type: 'text/plain' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `marketing-insights-${Date.now()}.txt`;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                            toast({ title: t('success'), description: 'Insights downloaded' });
+                          }}
+                          className="flex-1"
+                          data-testid="button-download-insights"
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          Download
                         </Button>
                         <SaveOptionsDialog
                           content={trackInsights}
