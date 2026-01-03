@@ -25,8 +25,7 @@ export function TaskItem({ task }: TaskItemProps) {
 
   const updateTaskMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Task> }) => {
-      const response = await apiRequest("PATCH", `/api/tasks/${id}`, updates) as Response;
-      return response.json();
+      return apiRequest("PATCH", `/api/tasks/${id}`, updates);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
@@ -66,8 +65,7 @@ export function TaskItem({ task }: TaskItemProps) {
 
   const addProgressMutation = useMutation({
     mutationFn: async ({ id, progressData }: { id: string; progressData: { date: string; comment: string } }) => {
-      const response = await apiRequest("POST", `/api/tasks/${id}/progress`, progressData) as Response;
-      return response.json();
+      return apiRequest("POST", `/api/tasks/${id}/progress`, progressData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });

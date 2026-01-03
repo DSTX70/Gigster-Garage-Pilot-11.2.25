@@ -527,6 +527,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteTask(id: string): Promise<boolean> {
+    // Disassociate any time logs from this task to preserve time tracking history
+    // Note: Schema-level ON DELETE SET NULL would be the ideal long-term solution
+    await db.update(timeLogs).set({ taskId: null }).where(eq(timeLogs.taskId, id));
+    
+    // Delete the task
     const result = await db.delete(tasks).where(eq(tasks.id, id));
     return (result.rowCount ?? 0) > 0;
   }
