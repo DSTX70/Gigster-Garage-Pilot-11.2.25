@@ -408,9 +408,9 @@ export function TaskForm({ onSuccess, parentTaskId, existingTask }: TaskFormProp
                       <StatusBadge status="pending" size={16} />
                     </div>
                   </SelectItem>
-                  <SelectItem value="critical">
+                  <SelectItem value="active">
                     <div className="flex items-center">
-                      <StatusBadge status="critical" size={16} />
+                      <StatusBadge status="active" size={16} />
                     </div>
                   </SelectItem>
                   <SelectItem value="high">
@@ -418,24 +418,14 @@ export function TaskForm({ onSuccess, parentTaskId, existingTask }: TaskFormProp
                       <StatusBadge status="high" size={16} />
                     </div>
                   </SelectItem>
-                  <SelectItem value="medium">
+                  <SelectItem value="critical">
                     <div className="flex items-center">
-                      <StatusBadge status="medium" size={16} />
+                      <StatusBadge status="critical" size={16} />
                     </div>
                   </SelectItem>
-                  <SelectItem value="low">
+                  <SelectItem value="completed">
                     <div className="flex items-center">
-                      <StatusBadge status="low" size={16} />
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="complete">
-                    <div className="flex items-center">
-                      <StatusBadge status="complete" size={16} />
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="overdue">
-                    <div className="flex items-center">
-                      <StatusBadge status="overdue" size={16} />
+                      <StatusBadge status="completed" size={16} />
                     </div>
                   </SelectItem>
                 </SelectContent>

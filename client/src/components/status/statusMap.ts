@@ -14,7 +14,9 @@ export type StatusKey =
   | "medium"
   | "low"
   | "complete"
+  | "completed"
   | "pending"
+  | "active"
   | "overdue";
 
 export type StatusSpec = {
@@ -30,7 +32,9 @@ export const STATUS_MAP: Record<StatusKey, StatusSpec> = {
   medium: { label: "Medium", color: "#FDD835", Icon: Clock },
   low: { label: "Low", color: "#43A047", Icon: Circle },
   complete: { label: "Complete", color: "#4CAF50", Icon: CheckCircle2 },
+  completed: { label: "Completed", color: "#4CAF50", Icon: CheckCircle2 },
   pending: { label: "Pending", color: "#9E9E9E", Icon: Circle },
+  active: { label: "Active", color: "#2196F3", Icon: Clock },
   overdue: {
     label: "Overdue",
     color: "#D32F2F",

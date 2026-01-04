@@ -307,7 +307,7 @@ export function TaskDrawer({ isOpen, onClose, task, projectId, initialStatus, on
               </Badge>
               
               <Badge className={`${
-                task.status === "complete" ? "bg-emerald-100 text-emerald-800" :
+                task.status === "completed" ? "bg-emerald-100 text-emerald-800" :
                 task.status === "pending" ? "bg-gray-100 text-gray-800" :
                 "bg-blue-100 text-blue-800"
               }`}>
@@ -397,12 +397,10 @@ export function TaskDrawer({ isOpen, onClose, task, projectId, initialStatus, on
                         </FormControl>
                         <SelectContent>
                           <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="critical">Critical</SelectItem>
+                          <SelectItem value="active">Active</SelectItem>
                           <SelectItem value="high">High Priority</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="low">Low Priority</SelectItem>
-                          <SelectItem value="complete">Complete</SelectItem>
-                          <SelectItem value="overdue">Overdue</SelectItem>
+                          <SelectItem value="critical">Critical</SelectItem>
+                          <SelectItem value="completed">Completed</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
