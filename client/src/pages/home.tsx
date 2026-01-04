@@ -13,8 +13,10 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { Folder, AlertTriangle, Clock } from "lucide-react";
 import type { Project, Task, User } from "@shared/schema";
 import { useAuth } from "@/hooks/useAuth";
@@ -25,6 +27,7 @@ import { NextActionsCard } from "@/components/dashboard/NextActionsCard";
 
 export default function Home() {
   const { t } = useTranslation();
+  const { toast } = useToast();
   const { isAdmin, user } = useAuth();
   const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'completed'>('active');
   const [selectedAssignee, setSelectedAssignee] = useState<string>('all');
@@ -38,6 +41,30 @@ export default function Home() {
   const { data: tasks = [] } = useQuery<Task[]>({
     queryKey: ["/api/tasks"],
   });
+
+  const updateTaskMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Task> }) => {
+      return apiRequest("PATCH", `/api/tasks/${id}`, updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      toast({
+        title: "Task updated",
+        description: "Task has been updated successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update task",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleTaskUpdate = (taskId: string, updates: Partial<Task>) => {
+    updateTaskMutation.mutate({ id: taskId, updates });
+  };
 
   // Calculate urgent and overview stats
   const now = new Date();
@@ -181,6 +208,7 @@ export default function Home() {
                   
                   return 0;
                 })}
+              onTaskUpdate={handleTaskUpdate}
             />
           </div>
 

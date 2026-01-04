@@ -4,9 +4,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Calendar, Clock, Users, AlertCircle, CheckCircle2, MoreHorizontal, GitBranch } from "lucide-react";
+import { Calendar, Clock, Users, AlertCircle, CheckCircle2, MoreHorizontal, GitBranch, Eye } from "lucide-react";
 import { format } from "date-fns";
 import type { Task } from "@shared/schema";
+import { TaskDetailModal } from "@/components/task-detail-modal";
 
 interface DesktopTaskViewsProps {
   tasks: Task[];
@@ -15,6 +16,13 @@ interface DesktopTaskViewsProps {
 
 export function DesktopTaskViews({ tasks, onTaskUpdate }: DesktopTaskViewsProps) {
   const [activeView, setActiveView] = useState<"columns" | "kanban" | "gantt">("columns");
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
+  const handleTaskClick = (task: Task) => {
+    setSelectedTask(task);
+    setIsDetailModalOpen(true);
+  };
 
   const tasksByStatus = {
     todo: tasks.filter(task => !task.completed && (!task.progressNotes || (Array.isArray(task.progressNotes) && task.progressNotes.length === 0))),
@@ -45,9 +53,13 @@ export function DesktopTaskViews({ tasks, onTaskUpdate }: DesktopTaskViewsProps)
     const isDueSoon = task.dueDate && !isOverdue && new Date(task.dueDate).getTime() - new Date().getTime() < 24 * 60 * 60 * 1000 && !task.completed;
 
     return (
-      <Card className={`hover:shadow-md transition-all border ${
-        isOverdue ? "border-l-4 border-l-red-500" : "border-gray-200"
-      } ${compact ? "p-3" : ""}`}>
+      <Card 
+        className={`hover:shadow-md transition-all border cursor-pointer ${
+          isOverdue ? "border-l-4 border-l-red-500" : "border-gray-200"
+        } ${compact ? "p-3" : ""}`}
+        onClick={() => handleTaskClick(task)}
+        data-testid={`task-card-${task.id}`}
+      >
         <CardContent className={compact ? "p-3" : "p-4"}>
           <div className="space-y-3">
             {/* Header */}
@@ -58,6 +70,7 @@ export function DesktopTaskViews({ tasks, onTaskUpdate }: DesktopTaskViewsProps)
                   onCheckedChange={(checked) => 
                     onTaskUpdate?.(task.id, { completed: !!checked })
                   }
+                  onClick={(e) => e.stopPropagation()}
                   className="mt-1"
                 />
                 <div className="flex-1 min-w-0">
@@ -74,8 +87,17 @@ export function DesktopTaskViews({ tasks, onTaskUpdate }: DesktopTaskViewsProps)
                   )}
                 </div>
               </div>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-400 hover:text-gray-600">
-                <MoreHorizontal className="h-4 w-4" />
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-8 w-8 p-0 text-gray-400 hover:text-gray-600"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleTaskClick(task);
+                }}
+                title="View Details"
+              >
+                <Eye className="h-4 w-4" />
               </Button>
             </div>
 
@@ -404,6 +426,20 @@ export function DesktopTaskViews({ tasks, onTaskUpdate }: DesktopTaskViewsProps)
       <TabsContent value="gantt">
         <GanttView />
       </TabsContent>
+
+      {selectedTask && (
+        <TaskDetailModal
+          task={selectedTask}
+          isOpen={isDetailModalOpen}
+          onClose={() => {
+            setIsDetailModalOpen(false);
+            setSelectedTask(null);
+          }}
+          onUpdate={(updates) => {
+            onTaskUpdate?.(selectedTask.id, updates);
+          }}
+        />
+      )}
     </Tabs>
   );
 }
