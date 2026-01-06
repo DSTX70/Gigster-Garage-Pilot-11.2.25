@@ -1,155 +1,110 @@
-import { useState } from "react";
-import { useLocation } from "wouter";
-import { useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Shield, Building2, Key, Loader2 } from "lucide-react";
 import { Link } from "wouter";
+import { GigsterLogo } from "@/components/vsuite-logo";
 
-interface SignupData {
-  username: string;
-  password: string;
+interface SSOProvider {
+  id: string;
   name: string;
-  email?: string;
+  type: string;
+  displayName: string;
+  enabled: boolean;
 }
 
 export default function Signup() {
-  const [, navigate] = useLocation();
-  const { toast } = useToast();
-  const [formData, setFormData] = useState<SignupData>({
-    username: "",
-    password: "",
-    name: "",
-    email: "",
+  // Fetch available SSO providers
+  const { data: ssoProviders, isLoading: isLoadingProviders } = useQuery<SSOProvider[]>({
+    queryKey: ["/api/sso/providers/active"],
   });
 
-  const signupMutation = useMutation({
-    mutationFn: async (data: SignupData) => {
-      return await apiRequest<any>("POST", "/api/signup", data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-      toast({
-        title: "Account Created!",
-        description: "Welcome to Gigster Garage. You'll now complete a quick setup.",
-      });
-      // Refresh the page to trigger the authentication check and onboarding
-      window.location.href = "/";
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Signup Failed",
-        description: error.message || "Failed to create account. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.username.trim() || !formData.password.trim() || !formData.name.trim()) {
-      toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    signupMutation.mutate(formData);
+  const handleSSOLogin = (providerId: string) => {
+    window.location.href = `/sso/${providerId}/login`;
   };
 
-  const handleInputChange = (field: keyof SignupData) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: e.target.value
-    }));
+  const getProviderIcon = (type: string) => {
+    switch (type) {
+      case 'saml':
+        return <Shield size={18} />;
+      case 'oauth2':
+        return <Key size={18} />;
+      default:
+        return <Building2 size={18} />;
+    }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'linear-gradient(135deg, rgba(0,76,109,0.05) 0%, rgba(2,158,157,0.05) 100%)' }}>
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'linear-gradient(135deg, rgba(11, 29, 58, 0.05) 0%, rgba(46, 197, 194, 0.05) 100%)' }}>
+      <Card className="gigster-card w-full max-w-md">
         <CardHeader className="space-y-1">
+          <div className="flex justify-center mb-6">
+            <GigsterLogo size="medium" showText={false} />
+          </div>
           <div className="text-center space-y-2">
-            <CardTitle className="text-2xl font-black text-black">Gigster Garage</CardTitle>
-            <p className="text-xs text-black font-medium">Smarter tools for bolder dreams</p>
+            <CardTitle className="text-2xl brand-heading">Join Gigster Garage</CardTitle>
+            <p className="text-xs brand-tagline">Smarter tools for bolder dreams</p>
             <CardDescription className="pt-2">
-              Join Gigster Garage to start managing your tasks efficiently
+              Sign up using your organization's identity provider
             </CardDescription>
           </div>
         </CardHeader>
         
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Full Name *</Label>
-              <Input
-                id="name"
-                type="text"
-                placeholder="Enter your full name"
-                value={formData.name}
-                onChange={handleInputChange("name")}
-                required
-              />
-            </div>
+        <CardContent>
+          <div className="space-y-4">
+            {isLoadingProviders ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+              </div>
+            ) : ssoProviders && ssoProviders.length > 0 ? (
+              <div className="space-y-3">
+                <p className="text-sm text-gray-600 text-center mb-4">
+                  Choose your identity provider to continue
+                </p>
+                {ssoProviders.map((provider) => (
+                  <Button
+                    key={provider.id}
+                    type="button"
+                    variant="outline"
+                    className="w-full flex items-center justify-center gap-2 h-12"
+                    onClick={() => handleSSOLogin(provider.id)}
+                    data-testid={`button-sso-signup-${provider.id}`}
+                  >
+                    {getProviderIcon(provider.type)}
+                    <span>Continue with {provider.displayName || provider.name}</span>
+                  </Button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-6 space-y-4">
+                <div className="flex justify-center">
+                  <Shield className="h-12 w-12 text-gray-300" />
+                </div>
+                <div className="space-y-2">
+                  <p className="text-gray-600 font-medium">
+                    No SSO providers configured
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    Contact your administrator to set up Single Sign-On for your organization.
+                  </p>
+                </div>
+              </div>
+            )}
 
-            <div className="space-y-2">
-              <Label htmlFor="username">Username *</Label>
-              <Input
-                id="username"
-                type="text"
-                placeholder="Choose a username"
-                value={formData.username}
-                onChange={handleInputChange("username")}
-                required
-              />
+            <div className="pt-4 border-t space-y-3">
+              <p className="text-sm text-gray-600 text-center">
+                Already have an account?{" "}
+                <Link href="/login" className="text-blue-600 hover:underline">
+                  Sign in here
+                </Link>
+              </p>
+              <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
+                <Shield size={14} />
+                <span>Secured with enterprise SSO</span>
+              </div>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password">Password *</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Create a secure password"
-                value={formData.password}
-                onChange={handleInputChange("password")}
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email">Email (Optional)</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="Enter your email address"
-                value={formData.email}
-                onChange={handleInputChange("email")}
-              />
-            </div>
-          </CardContent>
-
-          <CardFooter className="flex flex-col space-y-4">
-            <Button 
-              type="submit" 
-              className="w-full" 
-              disabled={signupMutation.isPending}
-            >
-              {signupMutation.isPending ? "Creating Account..." : "Create Account"}
-            </Button>
-            
-            <p className="text-sm text-gray-600 text-center">
-              Already have an account?{" "}
-              <Link href="/login" className="text-blue-600 hover:underline">
-                Sign in here
-              </Link>
-            </p>
-          </CardFooter>
-        </form>
+          </div>
+        </CardContent>
       </Card>
     </div>
   );
