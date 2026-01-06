@@ -58,6 +58,7 @@ export const CoachRequest = z.object({
   structuredFields: z.record(z.any()).optional(),
   contextRef: CoachContextRef.optional(),
   requestedAutonomy: z.enum(["L0", "L1"]).default("L0"),
+  coachContext: z.lazy(() => GigsterCoachContextSchema).optional(),
 });
 
 export type CoachRequest = z.infer<typeof CoachRequest>;
@@ -134,46 +135,63 @@ export type GigsterBusinessStage =
   | "Rebuilding / pivoting"
   | string;
 
-// Structured context for Coach personalization
-export type GigsterCoachContext = {
-  user: {
-    preferredName?: string | null;
-    role?: string | null;
-    primaryGoals?: string[];
-    timeAvailable?: string | null;
-    tonePreference?: "reassuring" | "direct" | "coach" | string;
-    experienceLevel?: "new" | "experienced" | string;
-  };
-  business: {
-    businessName?: string | null;
-    industry?: string | null;
-    entityType?: string | null;
-    businessStage?: GigsterBusinessStage | null;
-    employeesRange?: string | null;
-    offerings?: string[];
-    pricingModel?: string | null;
-    serviceArea?: string | null;
-    leadSources?: string[];
-    toolsUsed?: string[];
-    painPoints?: string[];
-    yearsInBusiness?: string | null;
-    revenueRange?: string | null;
-  };
-  signals?: {
-    invoicesCreatedLast14d?: number;
-    clientsAddedLast14d?: number;
-    proposalsSentLast14d?: number;
-  };
-  flags?: {
-    onboardingCompleted?: boolean;
-    personalizeUsingProfile?: boolean;
-  };
-};
+// Zod schema for Coach context (permissive, optional fields)
+export const GigsterCoachContextSchema = z
+  .object({
+    user: z
+      .object({
+        preferredName: z.string().nullable().optional(),
+        role: z.string().nullable().optional(),
+        primaryGoals: z.array(z.string()).optional(),
+        timeAvailable: z.string().nullable().optional(),
+        tonePreference: z.string().optional(),
+        experienceLevel: z.string().optional(),
+      })
+      .optional()
+      .default({}),
+    business: z
+      .object({
+        businessName: z.string().nullable().optional(),
+        industry: z.string().nullable().optional(),
+        entityType: z.string().nullable().optional(),
+        businessStage: z.string().nullable().optional(),
+        employeesRange: z.string().nullable().optional(),
+        offerings: z.array(z.string()).optional(),
+        pricingModel: z.string().nullable().optional(),
+        serviceArea: z.string().nullable().optional(),
+        leadSources: z.array(z.string()).optional(),
+        toolsUsed: z.array(z.string()).optional(),
+        painPoints: z.array(z.string()).optional(),
+        yearsInBusiness: z.string().nullable().optional(),
+        revenueRange: z.string().nullable().optional(),
+      })
+      .optional()
+      .default({}),
+    signals: z
+      .object({
+        invoicesCreatedLast14d: z.number().int().nonnegative().optional(),
+        clientsAddedLast14d: z.number().int().nonnegative().optional(),
+        proposalsSentLast14d: z.number().int().nonnegative().optional(),
+      })
+      .optional(),
+    flags: z
+      .object({
+        onboardingCompleted: z.boolean().optional(),
+        personalizeUsingProfile: z.boolean().optional(),
+      })
+      .optional(),
+  })
+  .optional();
+
+// Inferred type from Zod schema
+export type GigsterCoachContext = z.infer<typeof GigsterCoachContextSchema>;
 
 // Compact summary for prompt building
-export function coachContextToSummary(ctx: GigsterCoachContext): string {
-  const b = ctx.business;
-  const u = ctx.user;
+export function coachContextToSummary(ctx?: GigsterCoachContext): string {
+  if (!ctx) return "";
+
+  const u = ctx.user ?? {};
+  const b = ctx.business ?? {};
 
   const parts: string[] = [];
   if (u.role) parts.push(`Role: ${u.role}`);
@@ -182,9 +200,13 @@ export function coachContextToSummary(ctx: GigsterCoachContext): string {
   if (b.entityType) parts.push(`Entity: ${b.entityType}`);
   if (b.employeesRange) parts.push(`Team: ${b.employeesRange}`);
 
-  if (b.offerings?.length) parts.push(`Offerings: ${b.offerings.slice(0, 6).join(", ")}`);
-  if (b.leadSources?.length) parts.push(`Lead sources: ${b.leadSources.slice(0, 6).join(", ")}`);
-  if (b.painPoints?.length) parts.push(`Pain points: ${b.painPoints.slice(0, 6).join(", ")}`);
+  const offerings = Array.isArray(b.offerings) ? b.offerings : [];
+  const leads = Array.isArray(b.leadSources) ? b.leadSources : [];
+  const pains = Array.isArray(b.painPoints) ? b.painPoints : [];
+
+  if (offerings.length) parts.push(`Offerings: ${offerings.slice(0, 6).join(", ")}`);
+  if (leads.length) parts.push(`Lead sources: ${leads.slice(0, 6).join(", ")}`);
+  if (pains.length) parts.push(`Pain points: ${pains.slice(0, 6).join(", ")}`);
 
   return parts.join(" | ");
 }

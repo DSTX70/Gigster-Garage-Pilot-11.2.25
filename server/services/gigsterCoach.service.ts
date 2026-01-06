@@ -2,7 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import OpenAI from "openai";
-import { CoachRequest, CoachResponse } from "../../shared/contracts/gigsterCoach.js";
+import { CoachRequest, CoachResponse, coachContextToSummary } from "../../shared/contracts/gigsterCoach.js";
 import { getPlanFeatures } from "../../shared/plans.js";
 
 type UserSession = {
@@ -70,6 +70,8 @@ export class GigsterCoachService {
     const autonomy = enforceAutonomy(policy, req.requestedAutonomy);
     const effectiveAutonomy = policyAgentOk && autonomy.allowed ? autonomy.level : "L0";
 
+    const ctxSummary = req.coachContext ? coachContextToSummary(req.coachContext) : "";
+
     const system = [
       "You are GigsterCoach — a lightweight business coach for gig workers.",
       "You must obey these rules:",
@@ -78,7 +80,11 @@ export class GigsterCoachService {
       "- Ask clarifying questions only if strictly necessary; otherwise make reasonable assumptions and label them.",
       "- Return concise, actionable guidance with checklists when appropriate.",
       `- Effective autonomy: ${effectiveAutonomy} (L0 assist-only, L1 still human-in-loop).`,
-    ].join("\n");
+      ctxSummary ? `User/Business Context (ground truth): ${ctxSummary}` : "",
+      ctxSummary ? "When giving suggestions, explicitly reference the user's stage/industry when relevant (e.g., \"Since you're in Early traction…\")." : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
 
     const userMsg = [
       `Intent: ${req.intent}`,
