@@ -99,6 +99,7 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(insertUser: UpsertUser): Promise<User>;
+  updateUser(userId: string, updateData: Partial<UpsertUser>): Promise<User>;
   updateUserOnboarding(userId: string, onboardingData: {
     hasCompletedOnboarding?: boolean;
     notificationEmail?: string;
@@ -366,6 +367,16 @@ export class DatabaseStorage implements IStorage {
         ...insertUser,
         password: hashedPassword,
       })
+      .returning();
+    return user;
+  }
+
+  async updateUser(userId: string, updateData: Partial<UpsertUser>): Promise<User> {
+    const { password, ...safeUpdateData } = updateData;
+    const [user] = await db
+      .update(users)
+      .set(safeUpdateData)
+      .where(eq(users.id, userId))
       .returning();
     return user;
   }
