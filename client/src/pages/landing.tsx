@@ -69,7 +69,12 @@ export default function Landing() {
         <div className="max-w-6xl mx-auto px-6 text-center relative z-10">
           {/* Logo and Branding */}
           <div className="flex justify-center mb-8 fade-in-up">
-            <GigsterLogo size="large" showText={false} className="pulse-gigster" />
+            <div className="flex items-center gap-3">
+              <GigsterLogo size="large" showText={false} className="pulse-gigster" />
+              <div className="text-white font-semibold text-base sm:text-lg tracking-tight">
+                Gigster Garage
+              </div>
+            </div>
           </div>
 
           {/* 10-second clarity */}
