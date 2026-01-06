@@ -24,6 +24,7 @@ import { DemoUpgradePrompt } from "@/components/DemoUpgradePrompt";
 import { NewMenuButton } from "@/components/dashboard/NewMenuButton";
 import { DashboardActionGrid } from "@/components/dashboard/DashboardActionGrid";
 import { NextActionsCard } from "@/components/dashboard/NextActionsCard";
+import { SetupBanner } from "@/components/SetupBanner";
 
 export default function Home() {
   const { t } = useTranslation();
@@ -95,6 +96,7 @@ export default function Home() {
       <ReminderSystem />
       
       <main className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-8 py-4 sm:py-6">
+        <SetupBanner />
         {/* 1. Page Title Row: Dashboard + subtitle + +New CTA */}
         <div className="mb-4 sm:mb-6">
           <div className="flex items-start justify-between gap-4">

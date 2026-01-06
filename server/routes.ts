@@ -1196,7 +1196,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({
       userProfile: up ?? null,
       businessProfile: bp ?? null,
-      onboarding: ob ?? { userId, lastSeenStep: 1, completedAt: null, personalizeUsingProfile: true },
+      onboarding: ob ?? { userId, lastSeenStep: 1, completedAt: null, personalizeUsingProfile: true, brandSetupCompleted: false },
     });
   });
 
@@ -1308,6 +1308,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
     res.json({ ok: true });
+  });
+
+  app.post("/api/onboarding/brand-complete", requireAuth, async (req: any, res: any) => {
+    const userId = req.session?.user?.id;
+    if (!userId) return res.status(401).json({ message: "Authentication required" });
+
+    const [existing] = await db.select().from(onboardingProgress).where(eq(onboardingProgress.userId, userId));
+
+    if (existing) {
+      await db
+        .update(onboardingProgress)
+        .set({ brandSetupCompleted: true, updatedAt: new Date() })
+        .where(eq(onboardingProgress.userId, userId));
+      res.json({ ok: true, brandSetupCompleted: true });
+    } else {
+      res.json({ ok: true, brandSetupCompleted: false, message: "No onboarding record found, skipping brand completion" });
+    }
   });
 
   // Demo Session Routes

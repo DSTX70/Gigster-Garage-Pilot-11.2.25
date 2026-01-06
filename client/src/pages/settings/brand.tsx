@@ -46,8 +46,17 @@ export default function BrandSettingsPage() {
     mutationFn: async (data: any) => {
       return apiRequest("PATCH", "/api/user/profile", data);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      try {
+        const res = await fetch("/api/onboarding/brand-complete", { 
+          method: "POST",
+          credentials: "include",
+        });
+        if (res.ok) {
+          queryClient.invalidateQueries({ queryKey: ["/api/profile/me"] });
+        }
+      } catch {}
       toast({
         title: "Brand Updated",
         description: "Your brand settings have been saved successfully",

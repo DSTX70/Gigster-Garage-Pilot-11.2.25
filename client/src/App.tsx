@@ -43,6 +43,7 @@ import CustomFields from "@/pages/custom-fields";
 import WorkflowAutomation from "@/pages/workflow-automation";
 import Onboarding from "@/pages/onboarding";
 import OnboardingWizard from "@/pages/onboarding-wizard";
+import OnboardingNext from "@/pages/onboarding-next";
 import BusinessProfile from "@/pages/business-profile";
 import QuickStartPage from "@/pages/quick-start";
 import BrandSettingsPage from "@/pages/settings/brand";
@@ -150,6 +151,7 @@ function Router() {
       {/* Onboarding and Setup Routes */}
       <Route path="/quick-start" component={QuickStartPage} />
       <Route path="/onboarding-wizard" component={OnboardingWizard} />
+      <Route path="/onboarding/next" component={OnboardingNext} />
       <Route path="/settings/profile" component={BusinessProfile} />
       
       {/* Desktop Routes */}

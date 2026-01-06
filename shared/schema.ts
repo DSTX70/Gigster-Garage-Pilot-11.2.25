@@ -1680,6 +1680,7 @@ export const onboardingProgress = pgTable("onboarding_progress", {
   lastSeenStep: integer("last_seen_step").notNull().default(1),
   completedAt: timestamp("completed_at", { withTimezone: true }),
   personalizeUsingProfile: boolean("personalize_using_profile").notNull().default(true),
+  brandSetupCompleted: boolean("brand_setup_completed").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

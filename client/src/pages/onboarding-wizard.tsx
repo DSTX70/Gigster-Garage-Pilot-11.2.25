@@ -393,7 +393,7 @@ export default function OnboardingWizard() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ personalizeUsingProfile }),
     });
-    setLocation("/");
+    setLocation("/onboarding/next");
   }
 
   if (loading) {
