@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import type { GigsterCoachContext } from "../../../shared/contracts/gigsterCoach";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,8 +12,32 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, MessageSquare, FileText, CheckCircle2, Lightbulb, History, Send } from "lucide-react";
+import { Loader2, MessageSquare, FileText, CheckCircle2, Lightbulb, History, Send, User } from "lucide-react";
 import { getCoachContext } from "@/lib/getCoachContext";
+import { Link } from "wouter";
+
+function PersonalizationBadge({ ctx }: { ctx: GigsterCoachContext | null }) {
+  if (!ctx) return null;
+  
+  const parts: string[] = [];
+  if (ctx.business?.businessStage) parts.push(ctx.business.businessStage.replace(/\s*→.*/, "").trim());
+  if (ctx.business?.industry) parts.push(ctx.business.industry.replace(/\s*\(.*\)/, "").trim());
+  if (ctx.user?.role) parts.push(ctx.user.role);
+  
+  if (parts.length === 0) return null;
+  
+  const label = parts.slice(0, 2).join(" • ");
+  
+  return (
+    <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-full px-3 py-1.5" data-testid="badge-personalization">
+      <User className="h-3 w-3" />
+      <span>{label}</span>
+      <Link href="/settings/profile" className="text-primary hover:underline ml-1">
+        Edit
+      </Link>
+    </div>
+  );
+}
 
 type CoachResponse = {
   answer: string;
@@ -39,6 +64,11 @@ export default function GigsterCoachPage() {
   const [question, setQuestion] = useState("");
   const [response, setResponse] = useState<CoachResponse | null>(null);
   const [activeTab, setActiveTab] = useState("ask");
+  const [profileCtx, setProfileCtx] = useState<GigsterCoachContext | null>(null);
+
+  useEffect(() => {
+    getCoachContext().then((ctx) => setProfileCtx(ctx ?? null));
+  }, []);
 
   const { data: history, isLoading: historyLoading } = useQuery<HistoryItem[]>({
     queryKey: ["/api/gigster-coach/history"],
@@ -130,6 +160,9 @@ export default function GigsterCoachPage() {
         <p className="text-muted-foreground mt-2">
           Your AI business coach - get help with proposals, invoices, contracts, and general business questions.
         </p>
+        <div className="mt-3">
+          <PersonalizationBadge ctx={profileCtx} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
