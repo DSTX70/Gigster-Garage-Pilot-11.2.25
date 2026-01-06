@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { apiRequest } from "@/lib/queryClient";
+import { getCoachContext } from "@/lib/getCoachContext";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -29,12 +30,14 @@ export function CoachSidebar(props: Props) {
     setLoading(true);
     setResp(null);
     try {
+      const coachContext = await getCoachContext();
       const base = {
         question,
         requestedAutonomy: "L0",
         contextRef: { surface: props.surface, ...(props.contextRef ?? {}) },
         structuredFields: props.structuredFields,
         artifactText: props.artifactText,
+        coachContext,
       };
 
       let path = "/api/gigster-coach/ask";

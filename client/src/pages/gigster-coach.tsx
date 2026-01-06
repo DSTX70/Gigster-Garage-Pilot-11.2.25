@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, MessageSquare, FileText, CheckCircle2, Lightbulb, History, Send } from "lucide-react";
+import { getCoachContext } from "@/lib/getCoachContext";
 
 type CoachResponse = {
   answer: string;
@@ -46,11 +47,9 @@ export default function GigsterCoachPage() {
 
   const askMutation = useMutation({
     mutationFn: async (data: { question: string }) => {
-      const res = await apiRequest("/api/gigster-coach/ask", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
-      return res as CoachResponse;
+      const coachContext = await getCoachContext();
+      const res = await apiRequest<CoachResponse>("POST", "/api/gigster-coach/ask", { ...data, coachContext });
+      return res;
     },
     onSuccess: (data) => {
       setResponse(data);
@@ -64,11 +63,9 @@ export default function GigsterCoachPage() {
 
   const draftMutation = useMutation({
     mutationFn: async (data: { question: string; draftTarget?: string }) => {
-      const res = await apiRequest("/api/gigster-coach/draft", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
-      return res as CoachResponse;
+      const coachContext = await getCoachContext();
+      const res = await apiRequest<CoachResponse>("POST", "/api/gigster-coach/draft", { ...data, coachContext });
+      return res;
     },
     onSuccess: (data) => {
       setResponse(data);
@@ -82,11 +79,9 @@ export default function GigsterCoachPage() {
 
   const reviewMutation = useMutation({
     mutationFn: async (data: { question: string; artifactText?: string }) => {
-      const res = await apiRequest("/api/gigster-coach/review", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
-      return res as CoachResponse;
+      const coachContext = await getCoachContext();
+      const res = await apiRequest<CoachResponse>("POST", "/api/gigster-coach/review", { ...data, coachContext });
+      return res;
     },
     onSuccess: (data) => {
       setResponse(data);
