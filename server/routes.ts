@@ -1072,18 +1072,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Auth routes
-  // Password authentication is disabled - users must use SSO
   app.post("/api/signup", async (req, res) => {
-    return res.status(403).json({ 
-      message: "Password authentication is disabled. Please use SSO to sign in." 
-    });
+    try {
+      const result = insertUserSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ 
+          message: "Invalid user data", 
+          errors: result.error.errors 
+        });
+      }
+
+      // Check if username already exists
+      const existingUser = await storage.getUserByUsername(result.data.username);
+      if (existingUser) {
+        return res.status(409).json({ message: "Username already exists" });
+      }
+
+      const user = await storage.createUser(result.data);
+      req.session.user = user;
+      res.status(201).json(user);
+    } catch (error) {
+      console.error("Error creating account:", error);
+      res.status(500).json({ message: "Failed to create account" });
+    }
   });
 
-  // Password authentication is disabled - users must use SSO
   app.post("/api/login", async (req, res) => {
-    return res.status(403).json({ 
-      message: "Password authentication is disabled. Please use SSO to sign in." 
-    });
+    try {
+      const result = loginSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ 
+          message: "Invalid login data", 
+          errors: result.error.errors 
+        });
+      }
+
+      const { username, password } = result.data;
+      console.log(`🔐 Login attempt for username: ${username}`);
+      const user = await storage.getUserByUsername(username);
+      
+      if (!user) {
+        console.log(`❌ User not found: ${username}`);
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+      
+      console.log(`👤 User found: ${user.username}, role: ${user.role}`);
+      const passwordValid = await storage.verifyPassword(user, password);
+      console.log(`🔑 Password verification result: ${passwordValid}`);
+      
+      if (!passwordValid) {
+        console.log(`❌ Password verification failed for: ${username}`);
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      req.session.user = user;
+      res.json({ 
+        user: { 
+          id: user.id, 
+          username: user.username, 
+          name: user.name, 
+          email: user.email, 
+          role: user.role,
+          hasCompletedOnboarding: user.hasCompletedOnboarding,
+          notificationEmail: user.notificationEmail,
+          phone: user.phone,
+          emailOptIn: user.emailOptIn,
+          smsOptIn: user.smsOptIn
+        } 
+      });
+    } catch (error) {
+      console.error("Error during login:", error);
+      res.status(500).json({ message: "Failed to login" });
+    }
   });
 
   app.post("/api/logout", (req, res) => {
