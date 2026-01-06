@@ -123,3 +123,68 @@ export const ApplySuggestionResponse = z.object({
   status: SuggestionStatus,
 });
 export type ApplySuggestionResponse = z.infer<typeof ApplySuggestionResponse>;
+
+// Business stage type for Coach context
+export type GigsterBusinessStage =
+  | "Idea → planning (not launched yet)"
+  | "Just launched (0–3 months)"
+  | "Early traction (3–12 months)"
+  | "Established (1–3 years)"
+  | "Scaling (3+ years, hiring/growing)"
+  | "Rebuilding / pivoting"
+  | string;
+
+// Structured context for Coach personalization
+export type GigsterCoachContext = {
+  user: {
+    preferredName?: string | null;
+    role?: string | null;
+    primaryGoals?: string[];
+    timeAvailable?: string | null;
+    tonePreference?: "reassuring" | "direct" | "coach" | string;
+    experienceLevel?: "new" | "experienced" | string;
+  };
+  business: {
+    businessName?: string | null;
+    industry?: string | null;
+    entityType?: string | null;
+    businessStage?: GigsterBusinessStage | null;
+    employeesRange?: string | null;
+    offerings?: string[];
+    pricingModel?: string | null;
+    serviceArea?: string | null;
+    leadSources?: string[];
+    toolsUsed?: string[];
+    painPoints?: string[];
+    yearsInBusiness?: string | null;
+    revenueRange?: string | null;
+  };
+  signals?: {
+    invoicesCreatedLast14d?: number;
+    clientsAddedLast14d?: number;
+    proposalsSentLast14d?: number;
+  };
+  flags?: {
+    onboardingCompleted?: boolean;
+    personalizeUsingProfile?: boolean;
+  };
+};
+
+// Compact summary for prompt building
+export function coachContextToSummary(ctx: GigsterCoachContext): string {
+  const b = ctx.business;
+  const u = ctx.user;
+
+  const parts: string[] = [];
+  if (u.role) parts.push(`Role: ${u.role}`);
+  if (b.businessStage) parts.push(`Stage: ${b.businessStage}`);
+  if (b.industry) parts.push(`Industry: ${b.industry}`);
+  if (b.entityType) parts.push(`Entity: ${b.entityType}`);
+  if (b.employeesRange) parts.push(`Team: ${b.employeesRange}`);
+
+  if (b.offerings?.length) parts.push(`Offerings: ${b.offerings.slice(0, 6).join(", ")}`);
+  if (b.leadSources?.length) parts.push(`Lead sources: ${b.leadSources.slice(0, 6).join(", ")}`);
+  if (b.painPoints?.length) parts.push(`Pain points: ${b.painPoints.slice(0, 6).join(", ")}`);
+
+  return parts.join(" | ");
+}

@@ -13,7 +13,9 @@ import { z } from "zod";
 import { storage } from "./storage";
 import { sendHighPriorityTaskNotification, sendSMSNotification, sendProposalEmail, sendInvoiceEmail, sendMessageAsEmail, parseInboundEmail } from "./emailService";
 import { generateInvoicePDF, generateProposalPDF, generateContractPDF, generatePresentationPDF } from "./pdfService";
-import { taskSchema, insertTaskSchema, insertProjectSchema, insertTemplateSchema, insertProposalSchema, insertClientSchema, insertClientDocumentSchema, insertInvoiceSchema, partialInvoiceUpdateSchema, insertPaymentSchema, insertContractSchema, insertPresentationSchema, insertUserSchema, onboardingSchema, updateTaskSchema, updateTemplateSchema, updateProposalSchema, updateTimeLogSchema, startTimerSchema, stopTimerSchema, generateProposalSchema, sendProposalSchema, directProposalSchema, insertMessageSchema, insertAgentSchema, insertAgentVisibilityFlagSchema, insertAgentGraduationPlanSchema } from "@shared/schema";
+import { taskSchema, insertTaskSchema, insertProjectSchema, insertTemplateSchema, insertProposalSchema, insertClientSchema, insertClientDocumentSchema, insertInvoiceSchema, partialInvoiceUpdateSchema, insertPaymentSchema, insertContractSchema, insertPresentationSchema, insertUserSchema, onboardingSchema, updateTaskSchema, updateTemplateSchema, updateProposalSchema, updateTimeLogSchema, startTimerSchema, stopTimerSchema, generateProposalSchema, sendProposalSchema, directProposalSchema, insertMessageSchema, insertAgentSchema, insertAgentVisibilityFlagSchema, insertAgentGraduationPlanSchema, userProfiles, businessProfiles, onboardingProgress } from "@shared/schema";
+import { eq } from "drizzle-orm";
+import { db } from "./db";
 import { calculateInvoiceTotals, validateInvoiceTotals, calculateBalanceDue } from "./utils/invoice-calculations";
 import { saveToFilingCabinet, fetchFromFilingCabinet } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
@@ -1180,6 +1182,132 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } else {
       res.status(401).json({ message: "Not authenticated" });
     }
+  });
+
+  // Profile API endpoints
+  app.get("/api/profile/me", requireAuth, async (req: any, res: any) => {
+    const userId = req.session?.user?.id;
+    if (!userId) return res.status(401).json({ message: "Authentication required" });
+
+    const [up] = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId));
+    const [bp] = await db.select().from(businessProfiles).where(eq(businessProfiles.userId, userId));
+    const [ob] = await db.select().from(onboardingProgress).where(eq(onboardingProgress.userId, userId));
+
+    res.json({
+      userProfile: up ?? null,
+      businessProfile: bp ?? null,
+      onboarding: ob ?? { userId, lastSeenStep: 1, completedAt: null, personalizeUsingProfile: true },
+    });
+  });
+
+  const userProfileSchema = z.object({
+    preferredName: z.string().max(100).optional(),
+    role: z.string().max(100).optional(),
+    primaryGoals: z.array(z.string()).optional(),
+    timeAvailable: z.string().max(50).optional(),
+    tonePreference: z.string().max(50).optional(),
+  });
+
+  const businessProfileSchema = z.object({
+    businessName: z.string().max(200).optional(),
+    industry: z.string().max(100).optional(),
+    entityType: z.string().max(100).optional(),
+    businessStage: z.string().max(100).optional(),
+    employeesRange: z.string().max(50).optional(),
+    offerings: z.array(z.string()).optional(),
+    pricingModel: z.string().max(100).optional(),
+    serviceArea: z.string().max(100).optional(),
+    leadSources: z.array(z.string()).optional(),
+    toolsUsed: z.array(z.string()).optional(),
+    painPoints: z.array(z.string()).optional(),
+    revenueRange: z.string().max(100).optional(),
+    yearsInBusiness: z.string().max(50).optional(),
+  });
+
+  const onboardingSchema2 = z.object({
+    lastSeenStep: z.number().int().min(1).max(6).optional(),
+    personalizeUsingProfile: z.boolean().optional(),
+  });
+
+  const profileUpdateSchema = z.object({
+    userProfile: userProfileSchema.optional(),
+    businessProfile: businessProfileSchema.optional(),
+    onboarding: onboardingSchema2.optional(),
+  });
+
+  app.put("/api/profile/me", requireAuth, async (req: any, res: any) => {
+    const userId = req.session?.user?.id;
+    if (!userId) return res.status(401).json({ message: "Authentication required" });
+
+    const parsed = profileUpdateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Invalid profile data", errors: parsed.error.errors });
+    }
+
+    const { userProfile, businessProfile, onboarding } = parsed.data;
+
+    // Upsert userProfiles
+    if (userProfile) {
+      await db
+        .insert(userProfiles)
+        .values({ userId, ...userProfile, updatedAt: new Date() })
+        .onConflictDoUpdate({
+          target: userProfiles.userId,
+          set: { ...userProfile, updatedAt: new Date() },
+        });
+    }
+
+    // Upsert businessProfiles
+    if (businessProfile) {
+      await db
+        .insert(businessProfiles)
+        .values({ userId, ...businessProfile, updatedAt: new Date() })
+        .onConflictDoUpdate({
+          target: businessProfiles.userId,
+          set: { ...businessProfile, updatedAt: new Date() },
+        });
+    }
+
+    // Upsert onboardingProgress
+    if (onboarding) {
+      await db
+        .insert(onboardingProgress)
+        .values({ userId, ...onboarding, updatedAt: new Date() })
+        .onConflictDoUpdate({
+          target: onboardingProgress.userId,
+          set: { ...onboarding, updatedAt: new Date() },
+        });
+    }
+
+    res.json({ ok: true });
+  });
+
+  app.post("/api/onboarding/complete", requireAuth, async (req: any, res: any) => {
+    const userId = req.session?.user?.id;
+    if (!userId) return res.status(401).json({ message: "Authentication required" });
+
+    const { personalizeUsingProfile = true } = req.body ?? {};
+
+    await db
+      .insert(onboardingProgress)
+      .values({
+        userId,
+        lastSeenStep: 6,
+        completedAt: new Date(),
+        personalizeUsingProfile,
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: onboardingProgress.userId,
+        set: {
+          lastSeenStep: 6,
+          completedAt: new Date(),
+          personalizeUsingProfile,
+          updatedAt: new Date(),
+        },
+      });
+
+    res.json({ ok: true });
   });
 
   // Demo Session Routes

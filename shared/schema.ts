@@ -1634,3 +1634,69 @@ export const insertAgencyHubItemSchema = createInsertSchema(agencyHubItems).omit
   id: true,
   createdAt: true,
 });
+
+// User Profiles - Extended profile for personalization
+export const userProfiles = pgTable("user_profiles", {
+  userId: text("user_id").primaryKey().notNull(),
+  preferredName: text("preferred_name"),
+  role: text("role"),
+  primaryGoals: jsonb("primary_goals").$type<string[]>().notNull().default([]),
+  timeAvailable: text("time_available"),
+  tonePreference: text("tone_preference").notNull().default("reassuring"),
+  experienceLevel: text("experience_level").notNull().default("new"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type UserProfile = typeof userProfiles.$inferSelect;
+export type InsertUserProfile = typeof userProfiles.$inferInsert;
+
+// Business Profiles - Detailed business context for Coach personalization
+export const businessProfiles = pgTable("business_profiles", {
+  userId: text("user_id").primaryKey().notNull(),
+  businessName: text("business_name"),
+  industry: text("industry"),
+  entityType: text("entity_type"),
+  businessStage: text("business_stage"),
+  employeesRange: text("employees_range").notNull().default("Just me"),
+  offerings: jsonb("offerings").$type<string[]>().notNull().default([]),
+  pricingModel: text("pricing_model"),
+  serviceArea: text("service_area"),
+  leadSources: jsonb("lead_sources").$type<string[]>().notNull().default([]),
+  toolsUsed: jsonb("tools_used").$type<string[]>().notNull().default([]),
+  painPoints: jsonb("pain_points").$type<string[]>().notNull().default([]),
+  yearsInBusiness: text("years_in_business"),
+  revenueRange: text("revenue_range"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type BusinessProfile = typeof businessProfiles.$inferSelect;
+export type InsertBusinessProfile = typeof businessProfiles.$inferInsert;
+
+// Onboarding Progress - Tracks wizard completion
+export const onboardingProgress = pgTable("onboarding_progress", {
+  userId: text("user_id").primaryKey().notNull(),
+  lastSeenStep: integer("last_seen_step").notNull().default(1),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  personalizeUsingProfile: boolean("personalize_using_profile").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type OnboardingProgress = typeof onboardingProgress.$inferSelect;
+export type InsertOnboardingProgress = typeof onboardingProgress.$inferInsert;
+
+// Profile Update Log - Transparency for profile changes
+export const profileUpdateLog = pgTable("profile_update_log", {
+  id: text("id").primaryKey().notNull(),
+  userId: text("user_id").notNull(),
+  source: text("source").notNull(),
+  field: text("field").notNull(),
+  oldValue: text("old_value"),
+  newValue: text("new_value"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type ProfileUpdateLog = typeof profileUpdateLog.$inferSelect;
+export type InsertProfileUpdateLog = typeof profileUpdateLog.$inferInsert;

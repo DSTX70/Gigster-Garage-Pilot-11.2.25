@@ -42,6 +42,8 @@ import BulkOperations from "@/pages/bulk-operations";
 import CustomFields from "@/pages/custom-fields";
 import WorkflowAutomation from "@/pages/workflow-automation";
 import Onboarding from "@/pages/onboarding";
+import OnboardingWizard from "@/pages/onboarding-wizard";
+import BusinessProfile from "@/pages/business-profile";
 import QuickStartPage from "@/pages/quick-start";
 import BrandSettingsPage from "@/pages/settings/brand";
 import NotFound from "@/pages/not-found";
@@ -147,6 +149,8 @@ function Router() {
     <Switch>      
       {/* Onboarding and Setup Routes */}
       <Route path="/quick-start" component={QuickStartPage} />
+      <Route path="/onboarding-wizard" component={OnboardingWizard} />
+      <Route path="/settings/profile" component={BusinessProfile} />
       
       {/* Desktop Routes */}
       <Route path="/" component={Home} />
