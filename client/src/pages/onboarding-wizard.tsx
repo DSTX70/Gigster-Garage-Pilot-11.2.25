@@ -233,6 +233,8 @@ export default function OnboardingWizard() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showResumeBanner, setShowResumeBanner] = useState(false);
+  const [savedStep, setSavedStep] = useState(1);
 
   const [step, setStep] = useState(1);
 
@@ -300,7 +302,14 @@ export default function OnboardingWizard() {
           setPainPoints(bp.painPoints ?? []);
 
           setPersonalizeUsingProfile(ob.personalizeUsingProfile ?? true);
-          setStep(ob.lastSeenStep ?? 1);
+          const lastStep = ob.lastSeenStep ?? 1;
+          if (lastStep > 1) {
+            setSavedStep(lastStep);
+            setShowResumeBanner(true);
+            setStep(1);
+          } else {
+            setStep(1);
+          }
         }
       } catch {
         // ignore: user may be unauth
@@ -411,6 +420,37 @@ export default function OnboardingWizard() {
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       <div className="mx-auto max-w-3xl px-4 py-10">
+        {showResumeBanner && (
+          <div className="mb-6 rounded-2xl border border-emerald-700/50 bg-emerald-950/40 p-5">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <p className="font-medium text-emerald-300">Welcome back!</p>
+                <p className="text-sm text-slate-300 mt-1">
+                  You were on step {savedStep} of 6. Pick up where you left off, or start fresh.
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  className="rounded-xl bg-emerald-500 px-4 py-2 font-medium text-slate-950 hover:bg-emerald-400 transition"
+                  onClick={() => {
+                    setStep(savedStep);
+                    setShowResumeBanner(false);
+                  }}
+                  data-testid="button-resume"
+                >
+                  Continue where I left off
+                </button>
+                <button
+                  className="rounded-xl border border-slate-600 px-4 py-2 text-slate-200 hover:bg-slate-800/60 transition"
+                  onClick={() => setShowResumeBanner(false)}
+                  data-testid="button-start-fresh"
+                >
+                  Start fresh
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 md:p-10">
           {step === 1 && (
             <div className="space-y-6">
