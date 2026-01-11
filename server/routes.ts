@@ -1204,6 +1204,118 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Next Action API - returns the single best action for the user
+  app.get("/api/next-action", requireAuth, async (req: any, res: any) => {
+    const userId = req.session?.user?.id;
+    if (!userId) return res.status(401).json({ message: "Authentication required" });
+
+    try {
+      const [ob] = await db.select().from(onboardingProgress).where(eq(onboardingProgress.userId, userId));
+      const user = await storage.getUser(userId);
+      const clientsList = await storage.getClients();
+      const invoicesList = await storage.getInvoices();
+      const tasksList = await storage.getTasks();
+
+      // Priority 1: Onboarding incomplete
+      if (!ob?.completedAt) {
+        return res.json({
+          key: "finish-onboarding",
+          title: "Complete your quick setup",
+          description: "Finish the onboarding wizard to personalize your workspace.",
+          ctaLabel: "Continue Setup",
+          href: "/onboarding-wizard",
+          priority: 1,
+        });
+      }
+
+      // Priority 2: Brand not set up
+      if (!ob?.brandSetupCompleted) {
+        return res.json({
+          key: "add-brand",
+          title: "Add your brand identity",
+          description: "Upload your logo and set brand colors so documents look professional.",
+          ctaLabel: "Set Up Brand",
+          href: "/settings/brand",
+          priority: 2,
+        });
+      }
+
+      // Priority 3: No clients
+      if (clientsList.length === 0) {
+        return res.json({
+          key: "add-first-client",
+          title: "Add your first client",
+          description: "Create a client profile to start sending invoices.",
+          ctaLabel: "Add Client",
+          href: "/clients?action=new",
+          priority: 3,
+        });
+      }
+
+      // Priority 4: Draft invoices waiting
+      const draftInvoices = invoicesList.filter(inv => inv.status === "draft");
+      if (draftInvoices.length > 0) {
+        const inv = draftInvoices[0];
+        return res.json({
+          key: "finish-invoice",
+          title: `Finish and send invoice #${inv.invoiceNumber || inv.id.slice(0, 8)}`,
+          description: inv.clientName ? `For ${inv.clientName}` : "Complete this draft invoice.",
+          ctaLabel: "Continue Invoice",
+          href: `/create-invoice?id=${inv.id}`,
+          priority: 4,
+        });
+      }
+
+      // Priority 5: Overdue tasks
+      const now = new Date();
+      const overdueTasks = tasksList.filter(t => !t.completed && t.dueDate && new Date(t.dueDate) < now);
+      if (overdueTasks.length > 0) {
+        const task = overdueTasks[0];
+        return res.json({
+          key: "overdue-task",
+          title: `Fix overdue task: "${task.title}"`,
+          description: "This task is past its due date.",
+          ctaLabel: "Open Task",
+          href: `/tasks?taskId=${task.id}`,
+          priority: 5,
+          urgent: true,
+        });
+      }
+
+      // Priority 6: Due soon tasks
+      const dueSoonTasks = tasksList.filter(t => {
+        if (t.completed || !t.dueDate) return false;
+        const dueDate = new Date(t.dueDate);
+        const timeDiff = dueDate.getTime() - now.getTime();
+        return timeDiff > 0 && timeDiff <= 48 * 60 * 60 * 1000;
+      });
+      if (dueSoonTasks.length > 0) {
+        const task = dueSoonTasks[0];
+        return res.json({
+          key: "due-soon-task",
+          title: `"${task.title}" is due soon`,
+          description: "Complete this task before the deadline.",
+          ctaLabel: "Open Task",
+          href: `/tasks?taskId=${task.id}`,
+          priority: 6,
+        });
+      }
+
+      // Default: Create invoice
+      return res.json({
+        key: "create-invoice",
+        title: "Create a new invoice",
+        description: "Bill a client for your work.",
+        ctaLabel: "New Invoice",
+        href: "/create-invoice",
+        priority: 10,
+      });
+    } catch (error: any) {
+      console.error("Error computing next action:", error);
+      res.status(500).json({ message: "Failed to compute next action" });
+    }
+  });
+
   const userProfileSchema = z.object({
     preferredName: z.string().max(100).optional(),
     role: z.string().max(100).optional(),

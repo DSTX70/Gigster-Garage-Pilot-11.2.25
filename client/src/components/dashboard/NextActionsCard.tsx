@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   ArrowRight,
   CheckSquare,
@@ -12,16 +13,32 @@ import {
   Plus,
   AlertTriangle,
   Clock,
+  Palette,
+  Users,
+  Sparkles,
 } from "lucide-react";
 import type { Task, Invoice, Proposal, Message } from "@shared/schema";
 
 type NextActionType = 
+  | "finish-onboarding"
+  | "add-brand"
+  | "add-first-client"
   | "overdue"
   | "due-soon"
   | "invoice-draft"
   | "proposal-draft"
   | "unread-messages"
   | "fallback";
+
+interface ServerNextAction {
+  key: string;
+  title: string;
+  description?: string;
+  ctaLabel: string;
+  href: string;
+  priority: number;
+  urgent?: boolean;
+}
 
 interface NextAction {
   type: NextActionType;
@@ -44,6 +61,11 @@ interface NextActionsCardProps {
 }
 
 export function NextActionsCard({ onNewTask }: NextActionsCardProps) {
+  const { data: serverAction, isLoading: serverLoading } = useQuery<ServerNextAction>({
+    queryKey: ["/api/next-action"],
+    staleTime: 1000 * 30,
+  });
+
   const { data: tasks = [] } = useQuery<Task[]>({
     queryKey: ["/api/tasks"],
   });
@@ -63,6 +85,18 @@ export function NextActionsCard({ onNewTask }: NextActionsCardProps) {
   const now = new Date();
 
   const getNextAction = (): NextAction => {
+    if (serverAction && serverAction.priority <= 3) {
+      return {
+        type: serverAction.key as NextActionType,
+        title: serverAction.title,
+        subtitle: serverAction.description,
+        primaryAction: {
+          label: serverAction.ctaLabel,
+          href: serverAction.href,
+        },
+        urgent: serverAction.urgent,
+      };
+    }
     const overdueTasks = tasks
       .filter(task => {
         if (task.completed || !task.dueDate) return false;
@@ -211,6 +245,12 @@ export function NextActionsCard({ onNewTask }: NextActionsCardProps) {
 
   const getIcon = () => {
     switch (nextAction.type) {
+      case "finish-onboarding":
+        return <Sparkles className="h-5 w-5 text-emerald-500" />;
+      case "add-brand":
+        return <Palette className="h-5 w-5 text-purple-500" />;
+      case "add-first-client":
+        return <Users className="h-5 w-5 text-blue-500" />;
       case "overdue":
         return <AlertTriangle className="h-5 w-5 text-red-500" />;
       case "due-soon":
@@ -225,6 +265,23 @@ export function NextActionsCard({ onNewTask }: NextActionsCardProps) {
         return <Plus className="h-5 w-5 text-[#2EC5C2]" />;
     }
   };
+
+  if (serverLoading) {
+    return (
+      <Card className="border border-gray-200 bg-white" data-testid="next-actions-card-loading">
+        <CardContent className="p-4 sm:p-5">
+          <div className="flex items-start gap-4">
+            <Skeleton className="h-5 w-5 rounded" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-4 w-3/4" />
+            </div>
+            <Skeleton className="h-8 w-24 rounded-md" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card 
