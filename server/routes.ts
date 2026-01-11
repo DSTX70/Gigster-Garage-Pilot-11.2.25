@@ -363,7 +363,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Middleware to check authentication
+  // TEMPORARY: Bypass auth for external testing (set BYPASS_AUTH=true)
   const requireAuth = (req: any, res: any, next: any) => {
+    if (process.env.BYPASS_AUTH === "true" && !req.session.user) {
+      // Create a temporary demo user for testing
+      req.session.user = { id: 1, email: "demo@gigstergarage.com", name: "Demo User", role: "user" };
+    }
     if (!req.session.user) {
       return res.status(401).json({ message: "Authentication required" });
     }
