@@ -130,7 +130,17 @@ const SELFTEST_CHECKS = [
 ];
 
 export function registerAuditRoutes(app: Express) {
+  const isProduction = process.env.NODE_ENV === "production" || 
+    process.env.REPLIT_DEPLOYMENT === "1";
+  
   const requireAuditToken = (req: Request, res: Response, next: NextFunction) => {
+    if (isProduction) {
+      return res.status(403).json({ 
+        error: "Audit endpoints disabled in production",
+        message: "These endpoints are only available in development/staging"
+      });
+    }
+    
     const token = req.headers["x-audit-token"] || req.query.audit_token;
     const expectedToken = process.env.AUDIT_TOKEN;
     
@@ -145,6 +155,7 @@ export function registerAuditRoutes(app: Express) {
       return res.status(401).json({ error: "Invalid or missing audit token" });
     }
     
+    console.log(`[AUDIT] ${req.method} ${req.path} accessed at ${new Date().toISOString()}`);
     next();
   };
 
