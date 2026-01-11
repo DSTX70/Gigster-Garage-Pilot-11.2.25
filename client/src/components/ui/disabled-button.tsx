@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 
 interface DisabledButtonProps extends ButtonProps {
   disabledReason?: string;
+  "data-testid"?: string;
 }
 
 export function DisabledButton({
@@ -11,6 +12,7 @@ export function DisabledButton({
   disabledReason,
   children,
   className,
+  "data-testid": testId,
   ...props
 }: DisabledButtonProps) {
   const isDisabled = disabled || !!disabledReason;
@@ -24,7 +26,7 @@ export function DisabledButton({
               {...props}
               disabled
               className={cn("pointer-events-none", className)}
-              data-testid={props["data-testid"]}
+              data-testid={testId}
             >
               {children}
             </Button>
@@ -38,7 +40,7 @@ export function DisabledButton({
   }
 
   return (
-    <Button {...props} disabled={isDisabled} className={className}>
+    <Button {...props} disabled={isDisabled} className={className} data-testid={testId}>
       {children}
     </Button>
   );

@@ -667,6 +667,23 @@ export default function CreateInvoice() {
                     onChange={(e) => updateFormData("dueDate", e.target.value)}
                     className="border-green-200 focus:border-green-500"
                   />
+                  <div className="flex gap-1">
+                    {[7, 14, 30].map((days) => (
+                      <button
+                        key={days}
+                        type="button"
+                        onClick={() => {
+                          const due = new Date();
+                          due.setDate(due.getDate() + days);
+                          updateFormData("dueDate", due.toISOString().split('T')[0]);
+                        }}
+                        className="text-xs px-2 py-0.5 rounded border border-gray-200 hover:bg-gray-100 text-gray-600"
+                        data-testid={`button-net-${days}`}
+                      >
+                        Net {days}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
