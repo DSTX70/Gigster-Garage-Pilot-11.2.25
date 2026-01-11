@@ -31,6 +31,26 @@ const safeStringify = (value: unknown): string => {
   }
 };
 
+// Session expired redirect handler
+function handleSessionExpired() {
+  try {
+    // Check if we're already on login page to avoid loops
+    if (window.location.pathname === '/login' || window.location.pathname === '/signup') {
+      return;
+    }
+    
+    // Store the current path for return after login
+    const returnPath = window.location.pathname + window.location.search;
+    const encodedNext = encodeURIComponent(returnPath);
+    
+    // Navigate to login with session expired message
+    window.location.href = `/login?expired=true&next=${encodedNext}`;
+  } catch {
+    // Fallback: just redirect to login
+    window.location.href = '/login?expired=true';
+  }
+}
+
 // Best-effort: if we see 401/403 anywhere, force re-check of /api/auth/user
 function invalidateAuthUserQuery() {
   try {
@@ -66,8 +86,15 @@ export async function apiRequest<T = unknown>(
     ...init,
   });
 
-  // If auth expired, force /api/auth/user to re-check so polling can stop via gating
-  if (res.status === 401 || res.status === 403) {
+  // If auth expired, redirect to login (except for auth check endpoint)
+  if (res.status === 401) {
+    invalidateAuthUserQuery();
+    // Don't redirect for auth check endpoint - let it return null
+    if (!path.includes('/api/auth/user')) {
+      handleSessionExpired();
+    }
+  }
+  if (res.status === 403) {
     invalidateAuthUserQuery();
   }
 

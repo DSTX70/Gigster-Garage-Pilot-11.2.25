@@ -40,7 +40,7 @@ export function EmptyState({
       <p className="text-sm text-muted-foreground max-w-md mb-6">
         {description}
       </p>
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col items-center gap-2">
         {actionLabel && onAction && (
           <Button onClick={onAction} data-testid="empty-state-action">
             {ActionIcon && <ActionIcon className="h-4 w-4 mr-2" />}
@@ -48,13 +48,13 @@ export function EmptyState({
           </Button>
         )}
         {secondaryActionLabel && onSecondaryAction && (
-          <Button
-            variant="outline"
+          <button
             onClick={onSecondaryAction}
+            className="text-sm text-muted-foreground hover:text-primary underline-offset-4 hover:underline transition-colors"
             data-testid="empty-state-secondary-action"
           >
             {secondaryActionLabel}
-          </Button>
+          </button>
         )}
       </div>
     </div>

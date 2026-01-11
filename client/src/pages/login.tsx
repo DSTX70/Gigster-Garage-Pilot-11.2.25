@@ -1,13 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
-import { LogIn, Shield, Building2, Key, Loader2 } from "lucide-react";
+import { LogIn, Shield, Building2, Key, Loader2, AlertCircle } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { GigsterLogo } from "@/components/vsuite-logo";
 import { Separator } from "@/components/ui/separator";
@@ -23,8 +24,21 @@ interface SSOProvider {
 export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [sessionExpired, setSessionExpired] = useState(false);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  
+  // Check for session expired flag
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('expired') === 'true') {
+      setSessionExpired(true);
+      // Clean up URL (remove expired param but keep next)
+      const next = params.get('next');
+      const newUrl = next ? `/login?next=${encodeURIComponent(next)}` : '/login';
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, []);
   
   // Get redirect target from query params (for mobile auth flow)
   const getRedirectTarget = (): string => {
@@ -106,6 +120,14 @@ export default function Login() {
           </div>
         </CardHeader>
         <CardContent>
+          {sessionExpired && (
+            <Alert variant="destructive" className="mb-4" data-testid="alert-session-expired">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Your session has expired. Please sign in again to continue.
+              </AlertDescription>
+            </Alert>
+          )}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <Label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
