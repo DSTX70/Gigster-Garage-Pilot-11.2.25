@@ -52,4 +52,3 @@ defaultBucketID = "replit-objstore-fce7b45a-a5cf-46bf-a6b0-4896a46b6e9a"
 [userenv]
 
 [userenv.development]
-BYPASS_AUTH = "true"
