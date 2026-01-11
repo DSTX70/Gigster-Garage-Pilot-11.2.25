@@ -85,7 +85,7 @@ export function NextActionsCard({ onNewTask }: NextActionsCardProps) {
   const now = new Date();
 
   const getNextAction = (): NextAction => {
-    if (serverAction && serverAction.priority <= 3) {
+    if (serverAction) {
       return {
         type: serverAction.key as NextActionType,
         title: serverAction.title,
