@@ -1161,6 +1161,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Tester Login - Creates or logs in a tester account with full access to all features
+  // Requires TESTER_ACCESS_CODE environment variable to be set for security
+  // Rate limited to prevent brute force attacks
+  const testerLoginAttempts = new Map<string, { count: number; lastAttempt: number }>();
+  const TESTER_MAX_ATTEMPTS = 5;
+  const TESTER_LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
+  
+  app.post("/api/auth/tester-login", async (req, res) => {
+    try {
+      const clientIp = req.ip || req.socket.remoteAddress || "unknown";
+      const now = Date.now();
+      
+      // Check rate limiting
+      const attempts = testerLoginAttempts.get(clientIp);
+      if (attempts) {
+        if (now - attempts.lastAttempt < TESTER_LOCKOUT_MS && attempts.count >= TESTER_MAX_ATTEMPTS) {
+          const remainingMs = TESTER_LOCKOUT_MS - (now - attempts.lastAttempt);
+          const remainingMins = Math.ceil(remainingMs / 60000);
+          console.log(`🔒 Tester login blocked for IP ${clientIp}: too many attempts`);
+          return res.status(429).json({ 
+            message: `Too many failed attempts. Try again in ${remainingMins} minutes.` 
+          });
+        }
+        // Reset if lockout expired
+        if (now - attempts.lastAttempt >= TESTER_LOCKOUT_MS) {
+          testerLoginAttempts.delete(clientIp);
+        }
+      }
+      
+      const { accessCode } = req.body;
+      const TESTER_ACCESS_CODE = process.env.TESTER_ACCESS_CODE;
+      
+      // Validate access code from environment
+      if (!TESTER_ACCESS_CODE) {
+        return res.status(503).json({ 
+          message: "Tester login is not configured. Set TESTER_ACCESS_CODE environment variable." 
+        });
+      }
+      
+      if (!accessCode || accessCode !== TESTER_ACCESS_CODE) {
+        // Track failed attempt
+        const current = testerLoginAttempts.get(clientIp) || { count: 0, lastAttempt: 0 };
+        testerLoginAttempts.set(clientIp, { count: current.count + 1, lastAttempt: now });
+        console.log(`⚠️ Failed tester login attempt from IP ${clientIp} (attempt ${current.count + 1})`);
+        return res.status(401).json({ message: "Invalid tester access code" });
+      }
+      
+      // Clear attempts on success
+      testerLoginAttempts.delete(clientIp);
+      
+      const TESTER_USERNAME = "platform_tester";
+      
+      // Check if tester account exists
+      let testerUser = await storage.getUserByUsername(TESTER_USERNAME);
+      
+      if (!testerUser) {
+        // Create the tester account with all features unlocked
+        const bcrypt = await import("bcrypt");
+        const hashedPassword = await bcrypt.hash(TESTER_ACCESS_CODE, 10);
+        
+        testerUser = await storage.createUser({
+          username: TESTER_USERNAME,
+          password: hashedPassword,
+          email: "tester@gigstergarage.test",
+          name: "Platform Tester",
+          role: "tester",
+          hasCompletedOnboarding: true,
+        });
+        
+        console.log("🧪 Created new tester account:", TESTER_USERNAME);
+      }
+      
+      // Set session
+      req.session.user = testerUser;
+      
+      console.log("🧪 Tester login successful:", TESTER_USERNAME);
+      
+      res.json({
+        user: {
+          id: testerUser.id,
+          username: testerUser.username,
+          name: testerUser.name,
+          email: testerUser.email,
+          role: testerUser.role,
+          hasCompletedOnboarding: true,
+          isTester: true,
+        },
+        message: "Tester login successful. All features unlocked.",
+      });
+    } catch (error) {
+      console.error("Error during tester login:", error);
+      res.status(500).json({ message: "Failed to create tester session" });
+    }
+  });
+
   app.get("/api/auth/user", async (req, res) => {
     if (req.session.user) {
       // Fetch fresh user data from database to ensure accuracy

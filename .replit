@@ -52,3 +52,6 @@ defaultBucketID = "replit-objstore-fce7b45a-a5cf-46bf-a6b0-4896a46b6e9a"
 [userenv]
 
 [userenv.development]
+
+[userenv.shared]
+TESTER_ACCESS_CODE = "GigsterTest2026!"

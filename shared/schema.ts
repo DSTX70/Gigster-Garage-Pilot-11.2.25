@@ -38,7 +38,7 @@ export const users = pgTable("users", {
   profileImageUrl: varchar("profile_image_url"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-  role: varchar("role", { enum: ["admin", "user"] }).default("user"),
+  role: varchar("role", { enum: ["admin", "user", "tester"] }).default("user"),
   username: varchar("username").unique().notNull(),
   password: varchar("password").notNull(),
   hasCompletedOnboarding: boolean("has_completed_onboarding").default(false),

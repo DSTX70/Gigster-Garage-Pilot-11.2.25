@@ -8,10 +8,18 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
-import { LogIn, Shield, Building2, Key, Loader2, AlertCircle } from "lucide-react";
+import { LogIn, Shield, Building2, Key, Loader2, AlertCircle, FlaskConical } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { GigsterLogo } from "@/components/vsuite-logo";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 interface SSOProvider {
   id: string;
@@ -25,6 +33,8 @@ export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [testerAccessCode, setTesterAccessCode] = useState("");
+  const [testerDialogOpen, setTesterDialogOpen] = useState(false);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   
@@ -75,6 +85,44 @@ export default function Login() {
       });
     },
   });
+
+  const testerLoginMutation = useMutation({
+    mutationFn: async (accessCode: string) => {
+      return await apiRequest<any>("POST", "/api/auth/tester-login", { accessCode });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({
+        title: "Tester Login Successful",
+        description: "All features unlocked for testing",
+      });
+      setTesterDialogOpen(false);
+      setTesterAccessCode("");
+      setTimeout(() => {
+        setLocation("/");
+      }, 100);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Tester login failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleTesterLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!testerAccessCode.trim()) {
+      toast({
+        title: "Access code required",
+        description: "Please enter the tester access code",
+        variant: "destructive",
+      });
+      return;
+    }
+    testerLoginMutation.mutate(testerAccessCode.trim());
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -221,6 +269,65 @@ export default function Login() {
               <p>Demo Account:</p>
               <p>Username: <code className="bg-gray-100 px-1 rounded">demo</code></p>
               <p>Password: <code className="bg-gray-100 px-1 rounded">demo123</code></p>
+            </div>
+
+            {/* Tester Login Section */}
+            <div className="border-t pt-3">
+              <Dialog open={testerDialogOpen} onOpenChange={setTesterDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-purple-600 border-purple-200 hover:bg-purple-50"
+                    data-testid="button-tester-login"
+                  >
+                    <FlaskConical size={14} className="mr-1" />
+                    Tester Login
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <FlaskConical className="h-5 w-5 text-purple-600" />
+                      Tester Access
+                    </DialogTitle>
+                    <DialogDescription>
+                      Enter the tester access code to login with full platform access for testing all features.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleTesterLogin} className="space-y-4 mt-4">
+                    <div>
+                      <Label htmlFor="tester-code">Access Code</Label>
+                      <Input
+                        id="tester-code"
+                        type="password"
+                        value={testerAccessCode}
+                        onChange={(e) => setTesterAccessCode(e.target.value)}
+                        placeholder="Enter tester access code"
+                        data-testid="input-tester-code"
+                      />
+                    </div>
+                    <Button
+                      type="submit"
+                      className="w-full bg-purple-600 hover:bg-purple-700"
+                      disabled={testerLoginMutation.isPending}
+                      data-testid="button-tester-submit"
+                    >
+                      {testerLoginMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Logging in...
+                        </>
+                      ) : (
+                        <>
+                          <FlaskConical className="mr-2 h-4 w-4" />
+                          Login as Tester
+                        </>
+                      )}
+                    </Button>
+                  </form>
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
         </CardContent>
