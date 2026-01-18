@@ -72,6 +72,8 @@ The application uses PostgreSQL with Drizzle ORM for its database, providing typ
 
 **Production Deployment**: Configured for autoscale deployment with build command `npm run build` and run command `npm run start`. All production monitoring, credential management, and social posting features are production-ready and tested. Comprehensive production guide available at `docs/PRODUCTION_READY_GUIDE.md`.
 
+**User Documentation**: A user-friendly guide is available at `docs/USER_GUIDE.md` covering getting started, navigation, core features, keyboard shortcuts, and troubleshooting. A comprehensive technical manual is also available at `docs/USER_MANUAL.md`.
+
 ## External Dependencies
 
 -   **@neondatabase/serverless**: PostgreSQL database connection.
