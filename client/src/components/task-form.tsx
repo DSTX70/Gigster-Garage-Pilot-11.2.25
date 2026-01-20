@@ -273,9 +273,7 @@ export function TaskForm({ onSuccess, parentTaskId, existingTask }: TaskFormProp
         links: links.length > 0 ? links.filter(link => link.trim() !== '') : undefined,
       });
 
-      if (existingTask || !isDemoMode) {
-        createTaskMutation.mutate(taskData as InsertTask);
-      }
+      createTaskMutation.mutate(taskData as InsertTask);
     } catch (error) {
       console.error('Validation error:', error);
       toast({
