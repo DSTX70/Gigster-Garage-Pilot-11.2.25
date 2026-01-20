@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
 
 type ProfileMeResponse = {
@@ -6,6 +6,66 @@ type ProfileMeResponse = {
   businessProfile: any | null;
   onboarding: { completedAt?: string | null; lastSeenStep?: number; personalizeUsingProfile?: boolean } | null;
 };
+
+const STORAGE_KEY = "gigster_onboarding_draft";
+
+type OnboardingDraft = {
+  step: number;
+  preferredName: string;
+  role: string;
+  goals: string[];
+  timeAvailable: string;
+  businessName: string;
+  industry: string;
+  entityType: string;
+  employeesRange: string;
+  businessStage: string;
+  revenueRange: string;
+  yearsInBusiness: string;
+  offerings: string[];
+  pricingModel: string;
+  serviceArea: string;
+  leadSources: string[];
+  toolsUsed: string[];
+  painPoints: string[];
+  personalizeUsingProfile: boolean;
+  savedAt: number;
+};
+
+function saveToLocalStorage(draft: Partial<OnboardingDraft>) {
+  try {
+    const existing = localStorage.getItem(STORAGE_KEY);
+    const current = existing ? JSON.parse(existing) : {};
+    const updated = { ...current, ...draft, savedAt: Date.now() };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  } catch {
+    // localStorage might be unavailable
+  }
+}
+
+function loadFromLocalStorage(): OnboardingDraft | null {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      // Only use if saved within last 7 days
+      if (parsed.savedAt && Date.now() - parsed.savedAt < 7 * 24 * 60 * 60 * 1000) {
+        return parsed;
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+function clearLocalStorage() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+}
 
 const ROLE_OPTIONS = [
   "Gig worker / Freelancer",
@@ -235,6 +295,9 @@ export default function OnboardingWizard() {
   const [saving, setSaving] = useState(false);
   const [showResumeBanner, setShowResumeBanner] = useState(false);
   const [savedStep, setSavedStep] = useState(1);
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const [lastSaveStatus, setLastSaveStatus] = useState<"saved" | "saving" | "error">("saved");
+  const keepAliveRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [step, setStep] = useState(1);
 
@@ -262,6 +325,69 @@ export default function OnboardingWizard() {
 
   const [personalizeUsingProfile, setPersonalizeUsingProfile] = useState(true);
 
+  // Keep session alive with periodic pings (every 20 seconds)
+  useEffect(() => {
+    const pingSession = async () => {
+      try {
+        const res = await fetch("/api/auth/user", { credentials: "include" });
+        if (res.status === 401) {
+          setSessionExpired(true);
+        }
+      } catch {
+        // Network error - don't mark as expired yet
+      }
+    };
+
+    // Initial ping
+    pingSession();
+
+    // Set up interval
+    keepAliveRef.current = setInterval(pingSession, 20000);
+
+    return () => {
+      if (keepAliveRef.current) {
+        clearInterval(keepAliveRef.current);
+      }
+    };
+  }, []);
+
+  // Save to localStorage immediately on any change
+  const saveLocalDraft = useCallback(() => {
+    saveToLocalStorage({
+      step,
+      preferredName,
+      role,
+      goals,
+      timeAvailable,
+      businessName,
+      industry,
+      entityType,
+      employeesRange,
+      businessStage,
+      revenueRange,
+      yearsInBusiness,
+      offerings,
+      pricingModel,
+      serviceArea,
+      leadSources,
+      toolsUsed,
+      painPoints,
+      personalizeUsingProfile,
+    });
+  }, [
+    step, preferredName, role, goals, timeAvailable, businessName, industry,
+    entityType, employeesRange, businessStage, revenueRange, yearsInBusiness,
+    offerings, pricingModel, serviceArea, leadSources, toolsUsed, painPoints,
+    personalizeUsingProfile,
+  ]);
+
+  // Save to localStorage on every change (immediate, not debounced)
+  useEffect(() => {
+    if (!loading) {
+      saveLocalDraft();
+    }
+  }, [loading, saveLocalDraft]);
+
   const eta = useMemo(() => {
     const remaining = Math.max(0, 6 - step);
     if (remaining >= 4) return "About 3 minutes left";
@@ -272,37 +398,51 @@ export default function OnboardingWizard() {
   useEffect(() => {
     (async () => {
       try {
-        const r = await fetch("/api/profile/me");
+        // First, check localStorage for any saved draft
+        const localDraft = loadFromLocalStorage();
+
+        const r = await fetch("/api/profile/me", { credentials: "include" });
         if (r.ok) {
           const j = (await r.json()) as ProfileMeResponse;
           const up = j.userProfile ?? {};
           const bp = j.businessProfile ?? {};
           const ob = j.onboarding ?? {};
 
-          setPreferredName(up.preferredName ?? "");
-          setRole(up.role ?? "");
-          setGoals(up.primaryGoals ?? []);
-          setTimeAvailable(up.timeAvailable ?? "");
+          // Merge: prefer localStorage if it was saved more recently (within last hour)
+          // and has more progress than server. Otherwise use server data.
+          const localIsRecent = localDraft && localDraft.savedAt && 
+            (Date.now() - localDraft.savedAt < 60 * 60 * 1000); // within last hour
+          const localHasMoreProgress = localDraft && localDraft.step > (ob.lastSeenStep ?? 1);
+          const useLocal = localIsRecent && localHasMoreProgress;
 
-          setBusinessName(bp.businessName ?? "");
-          setIndustry(bp.industry ?? "");
-          setEntityType(bp.entityType ?? "");
-          setEmployeesRange(bp.employeesRange ?? "Just me");
+          setPreferredName(useLocal && localDraft.preferredName ? localDraft.preferredName : (up.preferredName ?? ""));
+          setRole(useLocal && localDraft.role ? localDraft.role : (up.role ?? ""));
+          setGoals(useLocal && localDraft.goals?.length ? localDraft.goals : (up.primaryGoals ?? []));
+          setTimeAvailable(useLocal && localDraft.timeAvailable ? localDraft.timeAvailable : (up.timeAvailable ?? ""));
 
-          setBusinessStage(bp.businessStage ?? "");
-          setRevenueRange(bp.revenueRange ?? "");
-          setYearsInBusiness(bp.yearsInBusiness ?? "");
+          setBusinessName(useLocal && localDraft.businessName ? localDraft.businessName : (bp.businessName ?? ""));
+          setIndustry(useLocal && localDraft.industry ? localDraft.industry : (bp.industry ?? ""));
+          setEntityType(useLocal && localDraft.entityType ? localDraft.entityType : (bp.entityType ?? ""));
+          setEmployeesRange(useLocal && localDraft.employeesRange ? localDraft.employeesRange : (bp.employeesRange ?? "Just me"));
 
-          setOfferings(bp.offerings ?? []);
-          setPricingModel(bp.pricingModel ?? "");
-          setServiceArea(bp.serviceArea ?? "");
+          setBusinessStage(useLocal && localDraft.businessStage ? localDraft.businessStage : (bp.businessStage ?? ""));
+          setRevenueRange(useLocal && localDraft.revenueRange ? localDraft.revenueRange : (bp.revenueRange ?? ""));
+          setYearsInBusiness(useLocal && localDraft.yearsInBusiness ? localDraft.yearsInBusiness : (bp.yearsInBusiness ?? ""));
 
-          setLeadSources(bp.leadSources ?? []);
-          setToolsUsed(bp.toolsUsed ?? []);
-          setPainPoints(bp.painPoints ?? []);
+          setOfferings(useLocal && localDraft.offerings?.length ? localDraft.offerings : (bp.offerings ?? []));
+          setPricingModel(useLocal && localDraft.pricingModel ? localDraft.pricingModel : (bp.pricingModel ?? ""));
+          setServiceArea(useLocal && localDraft.serviceArea ? localDraft.serviceArea : (bp.serviceArea ?? ""));
 
-          setPersonalizeUsingProfile(ob.personalizeUsingProfile ?? true);
-          const lastStep = ob.lastSeenStep ?? 1;
+          setLeadSources(useLocal && localDraft.leadSources?.length ? localDraft.leadSources : (bp.leadSources ?? []));
+          setToolsUsed(useLocal && localDraft.toolsUsed?.length ? localDraft.toolsUsed : (bp.toolsUsed ?? []));
+          setPainPoints(useLocal && localDraft.painPoints?.length ? localDraft.painPoints : (bp.painPoints ?? []));
+
+          setPersonalizeUsingProfile(localDraft?.personalizeUsingProfile ?? ob.personalizeUsingProfile ?? true);
+          
+          const serverStep = ob.lastSeenStep ?? 1;
+          const localStep = localDraft?.step ?? 1;
+          const lastStep = Math.max(serverStep, localStep);
+          
           if (lastStep > 1) {
             setSavedStep(lastStep);
             setShowResumeBanner(true);
@@ -310,9 +450,61 @@ export default function OnboardingWizard() {
           } else {
             setStep(1);
           }
+        } else if (r.status === 401) {
+          // Session expired but we have local data
+          if (localDraft) {
+            setPreferredName(localDraft.preferredName ?? "");
+            setRole(localDraft.role ?? "");
+            setGoals(localDraft.goals ?? []);
+            setTimeAvailable(localDraft.timeAvailable ?? "");
+            setBusinessName(localDraft.businessName ?? "");
+            setIndustry(localDraft.industry ?? "");
+            setEntityType(localDraft.entityType ?? "");
+            setEmployeesRange(localDraft.employeesRange ?? "Just me");
+            setBusinessStage(localDraft.businessStage ?? "");
+            setRevenueRange(localDraft.revenueRange ?? "");
+            setYearsInBusiness(localDraft.yearsInBusiness ?? "");
+            setOfferings(localDraft.offerings ?? []);
+            setPricingModel(localDraft.pricingModel ?? "");
+            setServiceArea(localDraft.serviceArea ?? "");
+            setLeadSources(localDraft.leadSources ?? []);
+            setToolsUsed(localDraft.toolsUsed ?? []);
+            setPainPoints(localDraft.painPoints ?? []);
+            setPersonalizeUsingProfile(localDraft.personalizeUsingProfile ?? true);
+            if (localDraft.step > 1) {
+              setSavedStep(localDraft.step);
+              setShowResumeBanner(true);
+            }
+          }
+          setSessionExpired(true);
         }
       } catch {
-        // ignore: user may be unauth
+        // Network error - try to restore from localStorage
+        const localDraft = loadFromLocalStorage();
+        if (localDraft) {
+          setPreferredName(localDraft.preferredName ?? "");
+          setRole(localDraft.role ?? "");
+          setGoals(localDraft.goals ?? []);
+          setTimeAvailable(localDraft.timeAvailable ?? "");
+          setBusinessName(localDraft.businessName ?? "");
+          setIndustry(localDraft.industry ?? "");
+          setEntityType(localDraft.entityType ?? "");
+          setEmployeesRange(localDraft.employeesRange ?? "Just me");
+          setBusinessStage(localDraft.businessStage ?? "");
+          setRevenueRange(localDraft.revenueRange ?? "");
+          setYearsInBusiness(localDraft.yearsInBusiness ?? "");
+          setOfferings(localDraft.offerings ?? []);
+          setPricingModel(localDraft.pricingModel ?? "");
+          setServiceArea(localDraft.serviceArea ?? "");
+          setLeadSources(localDraft.leadSources ?? []);
+          setToolsUsed(localDraft.toolsUsed ?? []);
+          setPainPoints(localDraft.painPoints ?? []);
+          setPersonalizeUsingProfile(localDraft.personalizeUsingProfile ?? true);
+          if (localDraft.step > 1) {
+            setSavedStep(localDraft.step);
+            setShowResumeBanner(true);
+          }
+        }
       } finally {
         setLoading(false);
       }
@@ -320,13 +512,15 @@ export default function OnboardingWizard() {
   }, []);
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || sessionExpired) return;
     const t = setTimeout(async () => {
       try {
         setSaving(true);
-        await fetch("/api/profile/me", {
+        setLastSaveStatus("saving");
+        const res = await fetch("/api/profile/me", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({
             userProfile: {
               preferredName,
@@ -356,8 +550,18 @@ export default function OnboardingWizard() {
             },
           }),
         });
+        
+        if (res.status === 401) {
+          setSessionExpired(true);
+          setLastSaveStatus("error");
+        } else if (res.ok) {
+          setLastSaveStatus("saved");
+        } else {
+          setLastSaveStatus("error");
+        }
       } catch {
-        // non-blocking
+        // Network error - data is still saved locally
+        setLastSaveStatus("error");
       } finally {
         setSaving(false);
       }
@@ -366,6 +570,7 @@ export default function OnboardingWizard() {
     return () => clearTimeout(t);
   }, [
     loading,
+    sessionExpired,
     step,
     preferredName,
     role,
@@ -388,12 +593,32 @@ export default function OnboardingWizard() {
   ]);
 
   async function finish() {
-    await fetch("/api/onboarding/complete", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ personalizeUsingProfile }),
-    });
-    setLocation("/onboarding/next");
+    try {
+      const res = await fetch("/api/onboarding/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ personalizeUsingProfile }),
+      });
+      
+      if (res.status === 401) {
+        setSessionExpired(true);
+        return;
+      }
+      
+      // Clear localStorage on successful completion
+      clearLocalStorage();
+      setLocation("/onboarding/next");
+    } catch {
+      // If network error, still try to proceed
+      setLocation("/onboarding/next");
+    }
+  }
+
+  function handleReLogin() {
+    // Save current state and redirect to login
+    saveLocalDraft();
+    window.location.href = "/login?next=" + encodeURIComponent("/onboarding-wizard");
   }
 
   if (loading) {
@@ -404,13 +629,26 @@ export default function OnboardingWizard() {
     );
   }
 
+  const getSaveStatusText = () => {
+    if (sessionExpired) return "Session expired - saved locally";
+    if (lastSaveStatus === "saving" || saving) return "Saving…";
+    if (lastSaveStatus === "error") return "Saved locally";
+    return "Saved";
+  };
+
+  const getSaveStatusColor = () => {
+    if (sessionExpired || lastSaveStatus === "error") return "text-amber-400";
+    if (lastSaveStatus === "saving" || saving) return "text-slate-400";
+    return "text-emerald-400";
+  };
+
   const StepTitle = ({ title, subtitle }: { title: string; subtitle: string }) => (
     <div>
       <div className="flex items-center justify-between">
         <p className="text-xs uppercase tracking-widest text-slate-300">
           Step {step} of 6 · {eta}
         </p>
-        <p className="text-xs text-slate-400">{saving ? "Saving…" : "Saved"}</p>
+        <p className={`text-xs ${getSaveStatusColor()}`}>{getSaveStatusText()}</p>
       </div>
       <h1 className="mt-3 text-2xl md:text-3xl font-semibold">{title}</h1>
       <p className="mt-2 text-slate-200">{subtitle}</p>
@@ -420,7 +658,26 @@ export default function OnboardingWizard() {
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       <div className="mx-auto max-w-3xl px-4 py-10">
-        {showResumeBanner && (
+        {sessionExpired && (
+          <div className="mb-6 rounded-2xl border border-amber-600/50 bg-amber-950/40 p-5">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <p className="font-medium text-amber-300">Session expired</p>
+                <p className="text-sm text-slate-300 mt-1">
+                  Don't worry — your progress is saved locally. Log back in to sync your data.
+                </p>
+              </div>
+              <button
+                className="rounded-xl bg-amber-500 px-4 py-2 font-medium text-slate-950 hover:bg-amber-400 transition whitespace-nowrap"
+                onClick={handleReLogin}
+                data-testid="button-relogin"
+              >
+                Log back in
+              </button>
+            </div>
+          </div>
+        )}
+        {showResumeBanner && !sessionExpired && (
           <div className="mb-6 rounded-2xl border border-emerald-700/50 bg-emerald-950/40 p-5">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
