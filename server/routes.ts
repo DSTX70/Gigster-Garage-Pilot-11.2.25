@@ -337,6 +337,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     secret: process.env.SESSION_SECRET || 'taskflow-secret-key',
     resave: false,
     saveUninitialized: false,
+    rolling: true, // Refresh session on every request to prevent timeout during activity
     cookie: {
       secure: isProduction, // Secure cookies in production (HTTPS required)
       httpOnly: true, // Prevent client-side JavaScript access

@@ -1,6 +1,10 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { CheckCheck, LogOut, Settings, User, Users, Plus, Mail, Shield, Home, Database, Zap, Bot, Clock, Brain, BarChart3, Webhook, Key, FileText, Globe, HelpCircle, Keyboard, BookOpen } from "lucide-react";
+import { 
+  CheckCheck, LogOut, Settings, User, Users, Plus, Mail, Shield, Home, Database, Zap, Bot, 
+  Clock, Brain, BarChart3, Webhook, Key, FileText, Globe, HelpCircle, Keyboard, BookOpen,
+  ChevronDown, Briefcase, Calendar, MessageSquare, Building, Presentation, FileCheck
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,6 +30,27 @@ import type { Task, TimeLog } from "@shared/schema";
 import { startOfDay, addDays } from "date-fns";
 import { useState, useEffect } from "react";
 import { useTranslation } from "@/lib/i18n";
+
+const coreFeatures = [
+  { id: 'home', title: 'Dashboard', icon: Home, path: '/' },
+  { id: 'tasks', title: 'Tasks', icon: FileCheck, path: '/tasks' },
+  { id: 'projects', title: 'Projects', icon: Briefcase, path: '/project-dashboard' },
+  { id: 'calendar', title: 'Calendar', icon: Calendar, path: '/calendar' },
+  { id: 'messages', title: 'Messages', icon: MessageSquare, path: '/messages' },
+];
+
+const businessOperations = [
+  { id: 'clients', title: 'Clients', icon: Users, path: '/client-list' },
+  { id: 'invoices', title: 'Invoices', icon: FileText, path: '/invoices' },
+  { id: 'contracts', title: 'Contracts', icon: FileCheck, path: '/contracts' },
+  { id: 'payments', title: 'Payments', icon: Building, path: '/payments' },
+  { id: 'proposals', title: 'Proposals', icon: Presentation, path: '/proposals' },
+];
+
+const helpItems = [
+  { id: 'user-manual', title: 'User Manual', icon: BookOpen, path: '/user-manual' },
+  { id: 'keyboard-shortcuts', title: 'Keyboard Shortcuts', icon: Keyboard, path: null, action: 'keyboard' },
+];
 
 export function AppHeader() {
   const { user, isAdmin } = useAuth();
@@ -185,7 +210,118 @@ export function AppHeader() {
               <GlobalSearch className="w-full" />
             </div>
             
-            {/* Navigation Menu */}
+            {/* Main Menu Buttons - visible on larger screens */}
+            <div className="hidden md:flex items-center gap-1">
+              {/* Core Features Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-white hover:bg-white/10 text-xs font-medium px-2 h-8"
+                    data-testid="button-core-features"
+                  >
+                    <Home size={14} className="mr-1" />
+                    Core
+                    <ChevronDown size={12} className="ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuLabel>Core Features</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {coreFeatures.map((item) => {
+                    const ItemIcon = item.icon;
+                    return (
+                      <DropdownMenuItem
+                        key={item.id}
+                        onClick={() => navigate(item.path)}
+                        className="cursor-pointer"
+                        data-testid={`menu-core-${item.id}`}
+                      >
+                        <ItemIcon size={14} className="mr-2" />
+                        {item.title}
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Business Operations Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-white hover:bg-white/10 text-xs font-medium px-2 h-8"
+                    data-testid="button-business-ops"
+                  >
+                    <Building size={14} className="mr-1" />
+                    Business
+                    <ChevronDown size={12} className="ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuLabel>Business Operations</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {businessOperations.map((item) => {
+                    const ItemIcon = item.icon;
+                    return (
+                      <DropdownMenuItem
+                        key={item.id}
+                        onClick={() => navigate(item.path)}
+                        className="cursor-pointer"
+                        data-testid={`menu-business-${item.id}`}
+                      >
+                        <ItemIcon size={14} className="mr-2" />
+                        {item.title}
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Help Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-white hover:bg-white/10 text-xs font-medium px-2 h-8"
+                    data-testid="button-help-menu"
+                  >
+                    <HelpCircle size={14} className="mr-1" />
+                    Help
+                    <ChevronDown size={12} className="ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuLabel>Help & Resources</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {helpItems.map((item) => {
+                    const ItemIcon = item.icon;
+                    return (
+                      <DropdownMenuItem
+                        key={item.id}
+                        onClick={() => {
+                          if (item.action === 'keyboard') {
+                            openKeyboardShortcuts();
+                          } else if (item.path) {
+                            navigate(item.path);
+                          }
+                        }}
+                        className="cursor-pointer"
+                        data-testid={`menu-help-${item.id}`}
+                      >
+                        <ItemIcon size={14} className="mr-2" />
+                        {item.title}
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+            
+            {/* Navigation Menu (hamburger with full menu) */}
             <NavigationMenu />
             
             {/* Demo Mode Indicator */}
