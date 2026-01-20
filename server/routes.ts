@@ -328,11 +328,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Use PostgreSQL session store for persistent sessions across server restarts
   const PgSession = ConnectPgSimple(session);
   
+  const sessionMaxAge = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+  const sessionTTL = 24 * 60 * 60; // 24 hours in seconds (for PostgreSQL store)
+  
   app.use(session({
     store: new PgSession({
       pool: pool,
       tableName: 'user_sessions',
       createTableIfMissing: false, // Table already exists, don't try to recreate
+      ttl: sessionTTL, // Explicit TTL in seconds - must match cookie maxAge
+      disableTouch: false, // Ensure touch() updates session expiry on each request
+      pruneSessionInterval: 60 * 15, // Clean expired sessions every 15 minutes (not too aggressive)
     }),
     secret: process.env.SESSION_SECRET || 'taskflow-secret-key',
     resave: false,
@@ -342,7 +348,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       secure: isProduction, // Secure cookies in production (HTTPS required)
       httpOnly: true, // Prevent client-side JavaScript access
       sameSite: 'lax', // CSRF protection (lax allows OAuth redirects)
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+      maxAge: sessionMaxAge // 24 hours - must match store TTL
     }
   }));
 
