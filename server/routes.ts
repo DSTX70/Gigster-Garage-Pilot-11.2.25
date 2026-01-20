@@ -1191,7 +1191,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const { accessCode } = req.body;
-      const TESTER_ACCESS_CODE = process.env.TESTER_ACCESS_CODE;
+      const TESTER_ACCESS_CODE = process.env.TESTER_ACCESS_CODE?.trim();
       
       // Validate access code from environment
       if (!TESTER_ACCESS_CODE) {
@@ -1200,7 +1200,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      if (!accessCode || accessCode !== TESTER_ACCESS_CODE) {
+      const providedCode = typeof accessCode === 'string' ? accessCode.trim() : '';
+      if (!providedCode || providedCode !== TESTER_ACCESS_CODE) {
         // Track failed attempt
         const current = testerLoginAttempts.get(clientIp) || { count: 0, lastAttempt: 0 };
         testerLoginAttempts.set(clientIp, { count: current.count + 1, lastAttempt: now });
