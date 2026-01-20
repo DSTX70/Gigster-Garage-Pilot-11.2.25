@@ -325,9 +325,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log('🔓 Development mode: Insecure cookies (localhost)');
   }
   
-  // Use MemoryStore for development to reduce database connection pressure
-  // In production, consider using a separate Pool for session storage
+  // Use PostgreSQL session store for persistent sessions across server restarts
+  const PgSession = ConnectPgSimple(session);
+  
   app.use(session({
+    store: new PgSession({
+      pool: pool,
+      tableName: 'user_sessions',
+      createTableIfMissing: false, // Table already exists, don't try to recreate
+    }),
     secret: process.env.SESSION_SECRET || 'taskflow-secret-key',
     resave: false,
     saveUninitialized: false,
