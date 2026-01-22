@@ -6,7 +6,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
-import { Calendar, Clock, MoreVertical, AlertTriangle, CheckCircle, ChevronDown, ChevronUp, FileText, Link, Paperclip, User, Eye } from "lucide-react";
+import { Calendar, Clock, Trash2, AlertTriangle, CheckCircle, ChevronDown, ChevronUp, FileText, Link, Paperclip, User, Eye } from "lucide-react";
 import type { Task } from "@shared/schema";
 import { StatusBadge } from "@/components/status/StatusBadge";
 import { type StatusKey } from "@/components/status/statusMap";
@@ -278,9 +278,10 @@ export function TaskItem({ task }: TaskItemProps) {
                   handleDelete();
                 }}
                 disabled={deleteTaskMutation.isPending}
-                className="text-neutral-400 hover:text-neutral-600 p-1"
+                className="text-neutral-400 hover:text-red-500 p-1"
+                title="Delete task"
               >
-                <MoreVertical size={16} />
+                <Trash2 size={16} />
               </Button>
             </div>
           </div>

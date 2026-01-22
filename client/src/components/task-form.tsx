@@ -60,20 +60,31 @@ function ProjectDropdown({ value, onValueChange, placeholder }: {
 }) {
   const [customProject, setCustomProject] = useState("");
   const [showCustomInput, setShowCustomInput] = useState(false);
+  const { toast } = useToast();
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
   });
 
   const createProjectMutation = useMutation({
     mutationFn: async (name: string) => {
-      const response = await apiRequest("POST", "/api/projects", { name });
-      return response.json();
+      return await apiRequest<Project>("POST", "/api/projects", { name });
     },
     onSuccess: (project) => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       onValueChange(project.id);
       setCustomProject("");
       setShowCustomInput(false);
+      toast({
+        title: "Project created",
+        description: `"${project.name}" has been created and selected.`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create project",
+        variant: "destructive",
+      });
     },
   });
 
@@ -176,8 +187,7 @@ export function TaskForm({ onSuccess, parentTaskId, existingTask }: TaskFormProp
 
   const createTaskMutation = useMutation({
     mutationFn: async (task: InsertTask) => {
-      const response = await apiRequest("POST", "/api/tasks", task);
-      return response.json();
+      return await apiRequest("POST", "/api/tasks", task);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
