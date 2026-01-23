@@ -65,6 +65,8 @@ import { mountGigsterCoachRoutes } from './routes/gigsterCoach.route.js';
 import { registerI3DropReceiver } from './routes/i3_drop_receiver';
 import { registerDthReadonlyRoutes } from './routes_dth_readonly';
 import { registerAuditRoutes } from './routes/audit.route.js';
+import { dthService } from './dthService';
+import { insertDthRegistrySchema } from '@shared/schema';
 
 // Initialize OpenAI client
 const openai = process.env.OPENAI_API_KEY ? new OpenAI({
@@ -412,6 +414,187 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Mount DTH read-only file connector (token-protected)
   registerDthReadonlyRoutes(app);
+  
+  // ========== DTH REGISTRY MANAGEMENT API (Admin only) ==========
+  
+  // Get all DTH registries
+  app.get("/api/dth/registry", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const registries = await dthService.getAllRegistries();
+      res.json(registries);
+    } catch (error: any) {
+      console.error("Failed to fetch DTH registries:", error);
+      res.status(500).json({ error: "Failed to fetch registries" });
+    }
+  });
+
+  // Get DTH dashboard stats
+  app.get("/api/dth/stats", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const stats = await dthService.getDashboardStats();
+      res.json(stats);
+    } catch (error: any) {
+      console.error("Failed to fetch DTH stats:", error);
+      res.status(500).json({ error: "Failed to fetch stats" });
+    }
+  });
+
+  // Create new DTH registry
+  app.post("/api/dth/registry", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const parsed = insertDthRegistrySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid registry data", details: parsed.error.errors });
+      }
+      
+      const registry = await dthService.createRegistry({
+        ...parsed.data,
+        createdById: req.session?.user?.id || null,
+      });
+      res.status(201).json(registry);
+    } catch (error: any) {
+      console.error("Failed to create DTH registry:", error);
+      res.status(500).json({ error: "Failed to create registry" });
+    }
+  });
+
+  // Get single DTH registry
+  app.get("/api/dth/registry/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const registry = await dthService.getRegistry(req.params.id);
+      if (!registry) {
+        return res.status(404).json({ error: "Registry not found" });
+      }
+      res.json(registry);
+    } catch (error: any) {
+      console.error("Failed to fetch DTH registry:", error);
+      res.status(500).json({ error: "Failed to fetch registry" });
+    }
+  });
+
+  // Update DTH registry
+  app.patch("/api/dth/registry/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const registry = await dthService.updateRegistry(req.params.id, req.body);
+      if (!registry) {
+        return res.status(404).json({ error: "Registry not found" });
+      }
+      res.json(registry);
+    } catch (error: any) {
+      console.error("Failed to update DTH registry:", error);
+      res.status(500).json({ error: "Failed to update registry" });
+    }
+  });
+
+  // Delete DTH registry
+  app.delete("/api/dth/registry/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const deleted = await dthService.deleteRegistry(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Registry not found" });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Failed to delete DTH registry:", error);
+      res.status(500).json({ error: "Failed to delete registry" });
+    }
+  });
+
+  // Perform health check on registry
+  app.post("/api/dth/registry/:id/health-check", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const result = await dthService.performHealthCheck(req.params.id);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Failed to perform health check:", error);
+      res.status(500).json({ error: "Health check failed" });
+    }
+  });
+
+  // Get sync logs for a registry
+  app.get("/api/dth/registry/:id/sync-logs", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const logs = await dthService.getSyncLogs(req.params.id, limit);
+      res.json(logs);
+    } catch (error: any) {
+      console.error("Failed to fetch sync logs:", error);
+      res.status(500).json({ error: "Failed to fetch sync logs" });
+    }
+  });
+
+  // Get access logs for a registry
+  app.get("/api/dth/registry/:id/access-logs", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const logs = await dthService.getAccessLogs(req.params.id, limit);
+      res.json(logs);
+    } catch (error: any) {
+      console.error("Failed to fetch access logs:", error);
+      res.status(500).json({ error: "Failed to fetch access logs" });
+    }
+  });
+
+  // Get recent sync logs (all registries)
+  app.get("/api/dth/sync-logs", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const logs = await dthService.getRecentSyncLogs(limit);
+      res.json(logs);
+    } catch (error: any) {
+      console.error("Failed to fetch sync logs:", error);
+      res.status(500).json({ error: "Failed to fetch sync logs" });
+    }
+  });
+
+  // Get recent access logs (all registries)
+  app.get("/api/dth/access-logs", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const logs = await dthService.getRecentAccessLogs(limit);
+      res.json(logs);
+    } catch (error: any) {
+      console.error("Failed to fetch access logs:", error);
+      res.status(500).json({ error: "Failed to fetch access logs" });
+    }
+  });
+
+  // Get access stats for a registry
+  app.get("/api/dth/registry/:id/access-stats", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const since = req.query.since ? new Date(req.query.since as string) : undefined;
+      const stats = await dthService.getAccessStats(req.params.id, since);
+      res.json(stats);
+    } catch (error: any) {
+      console.error("Failed to fetch access stats:", error);
+      res.status(500).json({ error: "Failed to fetch access stats" });
+    }
+  });
+
+  // Fetch files via registry (enhanced version of readonly endpoint)
+  app.post("/api/dth/registry/:id/fetch-files", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const paths = Array.isArray(req.body?.paths) ? req.body.paths : [];
+      if (!paths.length) {
+        return res.status(400).json({ error: "paths[] required" });
+      }
+      
+      const result = await dthService.readMultipleFiles(
+        paths,
+        req.params.id,
+        req.session?.user?.id
+      );
+      
+      res.json({ 
+        ok: true, 
+        files: result.files,
+        syncLog: result.syncLog
+      });
+    } catch (error: any) {
+      console.error("Failed to fetch files:", error);
+      res.status(500).json({ error: "Failed to fetch files" });
+    }
+  });
   
   // Mount audit routes (protected by AUDIT_TOKEN)
   registerAuditRoutes(app);
