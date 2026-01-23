@@ -104,6 +104,8 @@ export const projects = pgTable("projects", {
   color: varchar("color"),
   timeline: text("timeline"),
   clientId: varchar("client_id").references(() => clients.id),
+  // User ownership for data isolation
+  createdById: varchar("created_by_id"),
   // Demo session fields for data isolation
   isDemo: boolean("is_demo").default(false),
   demoSessionId: varchar("demo_session_id"),
@@ -130,6 +132,8 @@ export const clients = pgTable("clients", {
   totalInvoices: integer("total_invoices").default(0),
   totalRevenue: decimal("total_revenue", { precision: 10, scale: 2 }).default("0.00"),
   outstandingBalance: decimal("outstanding_balance", { precision: 10, scale: 2 }).default("0.00"),
+  // User ownership for data isolation
+  createdById: varchar("created_by_id"),
   // Demo session fields for data isolation
   isDemo: boolean("is_demo").default(false),
   demoSessionId: varchar("demo_session_id"),
