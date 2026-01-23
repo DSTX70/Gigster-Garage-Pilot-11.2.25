@@ -111,11 +111,11 @@ export interface IStorage {
   verifyPassword(user: User, password: string): Promise<boolean>;
 
   // Project management
-  getProjects(): Promise<Project[]>;
-  getProject(id: string): Promise<Project | undefined>;
-  createProject(insertProject: InsertProject): Promise<Project>;
-  getOrCreateProject(name: string): Promise<Project>;
-  updateProject(id: string, updateData: Partial<InsertProject>): Promise<Project | undefined>;
+  getProjects(userId?: string): Promise<Project[]>;
+  getProject(id: string, userId?: string): Promise<Project | undefined>;
+  createProject(insertProject: InsertProject, createdById?: string): Promise<Project>;
+  getOrCreateProject(name: string, createdById?: string): Promise<Project>;
+  updateProject(id: string, updateData: Partial<InsertProject>, userId?: string): Promise<Project | undefined>;
 
   // Task management
   getTasks(userId?: string): Promise<Task[]>;
@@ -190,11 +190,11 @@ export interface IStorage {
   generateShareableLink(proposalId: string): Promise<string>;
 
   // Client management
-  getClients(): Promise<Client[]>;
-  getClient(id: string): Promise<Client | undefined>;
-  createClient(insertClient: InsertClient): Promise<Client>;
-  updateClient(id: string, updateClient: Partial<InsertClient>): Promise<Client | undefined>;
-  deleteClient(id: string): Promise<boolean>;
+  getClients(userId?: string): Promise<Client[]>;
+  getClient(id: string, userId?: string): Promise<Client | undefined>;
+  createClient(insertClient: InsertClient, createdById?: string): Promise<Client>;
+  updateClient(id: string, updateClient: Partial<InsertClient>, userId?: string): Promise<Client | undefined>;
+  deleteClient(id: string, userId?: string): Promise<boolean>;
 
   // Client Document management
   getClientDocuments(clientId: string): Promise<ClientDocument[]>;
@@ -412,35 +412,53 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Project operations
-  async getProjects(): Promise<Project[]> {
+  async getProjects(userId?: string): Promise<Project[]> {
+    if (userId) {
+      // Filter by createdById for non-admin users (including testers)
+      return await db.select().from(projects)
+        .where(eq(projects.createdById, userId))
+        .orderBy(projects.name);
+    }
     return await db.select().from(projects).orderBy(projects.name);
   }
 
-  async getProject(id: string): Promise<Project | undefined> {
+  async getProject(id: string, userId?: string): Promise<Project | undefined> {
     const [project] = await db.select().from(projects).where(eq(projects.id, id));
+    // For non-admin users, verify ownership
+    if (project && userId && project.createdById !== userId) {
+      return undefined;
+    }
     return project;
   }
 
-  async createProject(insertProject: InsertProject): Promise<Project> {
+  async createProject(insertProject: InsertProject, createdById?: string): Promise<Project> {
     const [project] = await db
       .insert(projects)
-      .values(insertProject)
+      .values({ ...insertProject, createdById })
       .returning();
     return project;
   }
 
-  async getOrCreateProject(name: string): Promise<Project> {
-    // First try to find existing project
-    const [existing] = await db.select().from(projects).where(eq(projects.name, name));
+  async getOrCreateProject(name: string, createdById?: string): Promise<Project> {
+    // First try to find existing project for this user
+    const conditions = createdById 
+      ? and(eq(projects.name, name), eq(projects.createdById, createdById))
+      : eq(projects.name, name);
+    const [existing] = await db.select().from(projects).where(conditions);
     if (existing) {
       return existing;
     }
 
     // Create new project if not found
-    return await this.createProject({ name });
+    return await this.createProject({ name }, createdById);
   }
 
-  async updateProject(id: string, updateData: Partial<InsertProject>): Promise<Project | undefined> {
+  async updateProject(id: string, updateData: Partial<InsertProject>, userId?: string): Promise<Project | undefined> {
+    // For non-admin users, verify ownership first
+    if (userId) {
+      const existing = await this.getProject(id, userId);
+      if (!existing) return undefined;
+    }
     const [project] = await db
       .update(projects)
       .set(updateData)
@@ -1190,21 +1208,36 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Client operations
-  async getClients(): Promise<Client[]> {
+  async getClients(userId?: string): Promise<Client[]> {
+    if (userId) {
+      // Filter by createdById for non-admin users (including testers)
+      return await db.select().from(clients)
+        .where(eq(clients.createdById, userId))
+        .orderBy(clients.name);
+    }
     return await db.select().from(clients);
   }
 
-  async getClient(id: string): Promise<Client | undefined> {
+  async getClient(id: string, userId?: string): Promise<Client | undefined> {
     const [client] = await db.select().from(clients).where(eq(clients.id, id));
+    // For non-admin users, verify ownership
+    if (client && userId && client.createdById !== userId) {
+      return undefined;
+    }
     return client;
   }
 
-  async createClient(insertClient: InsertClient): Promise<Client> {
-    const [client] = await db.insert(clients).values(insertClient).returning();
+  async createClient(insertClient: InsertClient, createdById?: string): Promise<Client> {
+    const [client] = await db.insert(clients).values({ ...insertClient, createdById }).returning();
     return client;
   }
 
-  async updateClient(id: string, updateClient: Partial<InsertClient>): Promise<Client | undefined> {
+  async updateClient(id: string, updateClient: Partial<InsertClient>, userId?: string): Promise<Client | undefined> {
+    // For non-admin users, verify ownership first
+    if (userId) {
+      const existing = await this.getClient(id, userId);
+      if (!existing) return undefined;
+    }
     const [client] = await db
       .update(clients)
       .set(updateClient)
@@ -1213,7 +1246,12 @@ export class DatabaseStorage implements IStorage {
     return client;
   }
 
-  async deleteClient(id: string): Promise<boolean> {
+  async deleteClient(id: string, userId?: string): Promise<boolean> {
+    // For non-admin users, verify ownership first
+    if (userId) {
+      const existing = await this.getClient(id, userId);
+      if (!existing) return false;
+    }
     const result = await db.delete(clients).where(eq(clients.id, id));
     return result.rowCount! > 0;
   }

@@ -1868,10 +1868,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Project routes
+  // Project routes (primary - with user filtering for data isolation)
   app.get("/api/projects", requireAuth, cacheMiddleware(600), async (req, res) => {
     try {
-      const projects = await storage.getProjects();
+      // For admins, show all projects. For regular users and testers, filter by createdById
+      const user = req.session.user!;
+      const userId = user.role === 'admin' ? undefined : user.id;
+      const projects = await storage.getProjects(userId);
       res.json(projects);
     } catch (error) {
       console.error("Error fetching projects:", error);
@@ -1889,7 +1892,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const project = await storage.getOrCreateProject(result.data.name);
+      // Set the createdById to the current user for data isolation
+      const user = req.session.user!;
+      const project = await storage.getOrCreateProject(result.data.name, user.id);
       
       // Cache invalidation temporarily disabled
       
@@ -2513,10 +2518,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Project routes
+  // Project routes (secondary - with user filtering for data isolation)
   app.get("/api/projects", requireAuth, cacheMiddleware(600), async (req, res) => {
     try {
-      const projects = await storage.getProjects();
+      // For admins, show all projects. For regular users and testers, filter by createdById
+      const user = req.session.user!;
+      const userId = user.role === 'admin' ? undefined : user.id;
+      const projects = await storage.getProjects(userId);
       res.json(projects);
     } catch (error) {
       console.error("Error fetching projects:", error);
@@ -2526,7 +2534,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/projects/:id", requireAuth, async (req, res) => {
     try {
-      const project = await storage.getProject(req.params.id);
+      // For admins, no filtering. For regular users and testers, filter by createdById
+      const user = req.session.user!;
+      const userId = user.role === 'admin' ? undefined : user.id;
+      const project = await storage.getProject(req.params.id, userId);
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
@@ -2546,7 +2557,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Valid status is required" });
       }
 
-      const project = await storage.updateProject(id, { status });
+      // For admins, no filtering. For regular users and testers, filter by createdById
+      const user = req.session.user!;
+      const userId = user.role === 'admin' ? undefined : user.id;
+      const project = await storage.updateProject(id, { status }, userId);
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
@@ -2568,7 +2582,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const project = await storage.createProject(result.data);
+      // Set the createdById to the current user for data isolation
+      const user = req.session.user!;
+      const userId = user.role === 'admin' ? undefined : user.id;
+      
+      // Validate that clientId belongs to the current user (for non-admins)
+      if (result.data.clientId && userId) {
+        const client = await storage.getClient(result.data.clientId, userId);
+        if (!client) {
+          return res.status(403).json({ message: "Cannot link project to a client you don't own" });
+        }
+      }
+      
+      const project = await storage.createProject(result.data, user.id);
       res.status(201).json(project);
     } catch (error) {
       console.error("Error creating project:", error);
@@ -4086,10 +4112,13 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
     }
   });
 
-  // Client Management Routes
+  // Client Management Routes (with user filtering for data isolation)
   app.get("/api/clients", requireAuth, async (req, res) => {
     try {
-      const clients = await storage.getClients();
+      // For admins, show all clients. For regular users and testers, filter by createdById
+      const user = req.session.user!;
+      const userId = user.role === 'admin' ? undefined : user.id;
+      const clients = await storage.getClients(userId);
       res.json(clients);
     } catch (error) {
       console.error("Error fetching clients:", error);
@@ -4099,7 +4128,10 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
 
   app.get("/api/clients/:id", requireAuth, async (req, res) => {
     try {
-      const client = await storage.getClient(req.params.id);
+      // For admins, no filtering. For regular users and testers, filter by createdById
+      const user = req.session.user!;
+      const userId = user.role === 'admin' ? undefined : user.id;
+      const client = await storage.getClient(req.params.id, userId);
       if (!client) {
         return res.status(404).json({ message: "Client not found" });
       }
@@ -4113,7 +4145,9 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
   app.post("/api/clients", requireAuth, async (req, res) => {
     try {
       const validatedData = insertClientSchema.parse(req.body);
-      const client = await storage.createClient(validatedData);
+      // Set the createdById to the current user for data isolation
+      const user = req.session.user!;
+      const client = await storage.createClient(validatedData, user.id);
       console.log(`✅ Client created: ${client.name} (${client.email})`);
       res.status(201).json(client);
     } catch (error) {
@@ -4562,7 +4596,10 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
   app.post("/api/projects/:id/complete", requireAuth, async (req, res) => {
     try {
       const projectId = req.params.id;
-      const project = await storage.getProject(projectId);
+      // For admins, no filtering. For regular users and testers, filter by createdById
+      const user = req.session.user!;
+      const userId = user.role === 'admin' ? undefined : user.id;
+      const project = await storage.getProject(projectId, userId);
       
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
@@ -4571,12 +4608,12 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
       // Update project status to completed
       const updatedProject = await storage.updateProject(projectId, {
         status: 'completed'
-      });
+      }, userId);
 
-      // Generate automatic invoice if client exists
+      // Generate automatic invoice if client exists (with ownership check)
       if (project.clientId) {
         try {
-          const client = await storage.getClient(project.clientId);
+          const client = await storage.getClient(project.clientId, userId);
           if (client && client.email) {
             // Get all completed tasks for the project to calculate total
             const tasks = await storage.getTasksByProject(projectId);
