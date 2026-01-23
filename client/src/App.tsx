@@ -16,6 +16,7 @@ import Login from "@/pages/login";
 import Signup from "@/pages/signup";
 import Admin from "@/pages/admin";
 import AdminDiagnostics from "@/pages/admin-diagnostics";
+import DthRegistry from "@/pages/dth-registry";
 import Dashboard from "@/pages/dashboard";
 import ProjectDashboard from "@/pages/project-dashboard";
 import Tasks from "@/pages/tasks";
@@ -207,6 +208,7 @@ function Router() {
       <Route path="/system-status" component={SystemStatusPage} />
       {isAdmin && <Route path="/admin" component={Admin} />}
       {isAdmin && <Route path="/admin/diagnostics" component={AdminDiagnostics} />}
+      {isAdmin && <Route path="/admin/dth-registry" component={DthRegistry} />}
       {isAdmin && <Route path="/agent-management" component={AgentManagement} />}
       {isAdmin && <Route path="/ops/social-queue" component={SocialQueuePage} />}
       {isAdmin && <Route path="/ops/rate-limits" component={RateLimitsPage} />}
