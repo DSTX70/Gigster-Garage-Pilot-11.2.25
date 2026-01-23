@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Lightbulb, CheckCircle2 } from "lucide-react";
+import { Loader2, Lightbulb, CheckCircle2, Volume2, VolumeX, Pause, Play } from "lucide-react";
 import { SuggestionApplyButton } from "@/components/gigsterCoach/SuggestionApplyButton";
+import { useTextToSpeech } from "@/hooks/useTextToSpeech";
 
 type Props = {
   surface: "invoice" | "proposal" | "message" | "contract" | "other";
@@ -25,6 +26,7 @@ export function CoachSidebar(props: Props) {
   const [draftTarget, setDraftTarget] = useState<string>("client_message");
   const [resp, setResp] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const { speak, stop, pause, resume, isSpeaking, isPaused, isSupported } = useTextToSpeech();
 
   async function run() {
     setLoading(true);
@@ -148,6 +150,59 @@ export function CoachSidebar(props: Props) {
             <div className="text-sm whitespace-pre-wrap" data-testid="text-coach-answer">
               {resp.answer}
             </div>
+
+            {isSupported && (
+              <div className="flex items-center gap-2">
+                {isSpeaking ? (
+                  <>
+                    {isPaused ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => resume()}
+                        className="flex items-center gap-1 text-xs"
+                        data-testid="button-resume-speech"
+                      >
+                        <Play className="h-3 w-3" />
+                        Resume
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => pause()}
+                        className="flex items-center gap-1 text-xs"
+                        data-testid="button-pause-speech"
+                      >
+                        <Pause className="h-3 w-3" />
+                        Pause
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => stop()}
+                      className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700"
+                      data-testid="button-stop-speech"
+                    >
+                      <VolumeX className="h-3 w-3" />
+                      Stop
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => speak(resp.answer)}
+                    className="flex items-center gap-1 text-xs"
+                    data-testid="button-speak-response"
+                  >
+                    <Volume2 className="h-3 w-3" />
+                    Listen
+                  </Button>
+                )}
+              </div>
+            )}
 
             {Array.isArray(resp?.suggestions) && resp.suggestions.length > 0 && (
               <div className="space-y-1">
