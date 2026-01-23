@@ -315,12 +315,12 @@ function CommentForm({
                         >
                           <Avatar className="w-8 h-8">
                             <AvatarFallback className="text-xs bg-[#0B1D3A] text-white">
-                              {user.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                              {user.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <div className="font-medium text-sm">{user.name}</div>
-                            <div className="text-xs text-gray-500">{user.email}</div>
+                            <div className="font-medium text-sm">{user.name || 'Unknown User'}</div>
+                            <div className="text-xs text-gray-500">{user.email || ''}</div>
                           </div>
                         </div>
                       ))}
