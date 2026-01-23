@@ -431,12 +431,9 @@ export function DesktopTaskViews({ tasks, onTaskUpdate }: DesktopTaskViewsProps)
         <TaskDetailModal
           task={selectedTask}
           isOpen={isDetailModalOpen}
-          onClose={() => {
-            setIsDetailModalOpen(false);
-            setSelectedTask(null);
-          }}
-          onUpdate={(updates) => {
-            onTaskUpdate?.(selectedTask.id, updates);
+          onOpenChange={(open) => {
+            setIsDetailModalOpen(open);
+            if (!open) setSelectedTask(null);
           }}
         />
       )}
