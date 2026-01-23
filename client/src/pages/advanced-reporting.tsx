@@ -248,7 +248,7 @@ export default function AdvancedReportingPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-4xl font-bold text-gray-900 mb-2">Advanced Reporting</h1>
-            <p className="text-gray-600">Custom analytics and business intelligence dashboards</p>
+            <p className="text-gray-600">Build custom reports with your choice of metrics, date ranges, and visualizations. Save report templates for regular use and export to PDF or CSV for sharing with clients or stakeholders.</p>
           </div>
           <div className="flex items-center space-x-3">
             {reportData && (

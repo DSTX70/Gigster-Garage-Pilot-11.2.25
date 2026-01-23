@@ -640,7 +640,7 @@ export default function FilingCabinet() {
                 {documents.length} {t('files')}
               </Badge>
             </div>
-            <p className="text-gray-600">Advanced file organization and management system</p>
+            <p className="text-gray-600">Store and organize all your business documents. Use search, tags, and folders to find files quickly. Edit metadata, preview documents, and link files to clients or projects for easy access.</p>
           </div>
 
           {/* Document Type Stats */}

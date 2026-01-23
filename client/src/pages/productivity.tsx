@@ -221,7 +221,7 @@ export default function ProductivityPage() {
                 {t('timeProductivityTools')}
               </h2>
               <p className="text-gray-700 text-sm">
-                {t('timeProductivityDesc')}
+                Track your work hours and boost productivity. Use the timer to log time on tasks, review your time logs for approval, and monitor your daily streaks. Select logs to add to invoices for easy billing.
               </p>
             </div>
           </div>

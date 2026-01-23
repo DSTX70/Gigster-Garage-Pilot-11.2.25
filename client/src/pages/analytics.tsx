@@ -27,7 +27,7 @@ export default function AnalyticsPage() {
                 <BarChart3 className="mr-3" size={32} />
                 Analytics & Insights
               </h1>
-              <p className="text-gray-600 mt-1">Comprehensive productivity analytics and performance metrics</p>
+              <p className="text-gray-600 mt-1">See how your business is performing at a glance. View charts showing task completion trends, project progress, time allocation, and revenue over time. Use these insights to identify what's working and where to improve.</p>
             </div>
           </div>
         </div>

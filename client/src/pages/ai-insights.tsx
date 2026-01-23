@@ -94,7 +94,7 @@ export default function AIInsightsPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-4xl font-bold text-gray-900 mb-2">AI-Powered Insights</h1>
-            <p className="text-gray-600">Intelligent analytics and recommendations powered by GPT-4</p>
+            <p className="text-gray-600">Get intelligent recommendations to improve your business. AI analyzes your productivity, finances, projects, and workflows to surface actionable insights. Click "Refresh Insights" to get the latest analysis.</p>
           </div>
           <Button 
             onClick={handleRefreshInsights}

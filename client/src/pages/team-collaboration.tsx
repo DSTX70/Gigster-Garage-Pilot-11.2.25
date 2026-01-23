@@ -149,7 +149,7 @@ export default function TeamCollaborationPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-4xl font-bold text-gray-900 mb-2">Team Collaboration</h1>
-            <p className="text-gray-600">Real-time chat, task discussions, and team coordination</p>
+            <p className="text-gray-600">Communicate with your team in real-time. Use channels for project discussions, direct messages for private chats, and task-specific threads to keep conversations organized. Click any channel to open the chat.</p>
           </div>
           <div className="flex items-center space-x-3">
             <Badge variant="secondary" className="bg-green-100 text-green-800">

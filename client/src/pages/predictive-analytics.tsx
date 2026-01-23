@@ -245,7 +245,7 @@ export default function PredictiveAnalyticsPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-4xl font-bold text-gray-900 mb-2">Predictive Analytics</h1>
-            <p className="text-gray-600">AI-powered project predictions and risk assessment</p>
+            <p className="text-gray-600">See the future of your projects. AI predicts completion dates, identifies risks before they become problems, and forecasts revenue trends. Use these predictions to plan ahead and avoid surprises.</p>
           </div>
           <div className="flex items-center space-x-3">
             {analyticsStats && (

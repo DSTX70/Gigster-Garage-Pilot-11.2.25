@@ -102,7 +102,7 @@ export default function Templates() {
         <div>
           <h1 className="text-3xl font-bold">Template Library</h1>
           <p className="text-muted-foreground mt-1">
-            Create and manage reusable document templates
+            Save time with reusable templates for proposals, contracts, invoices, and presentations. Create a template once, then use it to generate new documents with pre-filled content. Click "Create Template" to build your first one.
           </p>
         </div>
         <div className="flex items-center space-x-2">

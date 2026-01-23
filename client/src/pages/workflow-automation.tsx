@@ -610,7 +610,7 @@ export default function WorkflowAutomationPage() {
                 <Zap className="mr-3" size={32} />
                 Workflow Automation
               </h1>
-              <p className="text-gray-600 mt-1">Automate repetitive tasks with intelligent rules and triggers</p>
+              <p className="text-gray-600 mt-1">Create rules that automatically perform actions when certain events happen. For example, send an email when a task becomes overdue, or change priority when a deadline approaches. Click "Create Rule" to set up your first automation.</p>
             </div>
           </div>
           <Dialog open={showRuleBuilder} onOpenChange={setShowRuleBuilder}>

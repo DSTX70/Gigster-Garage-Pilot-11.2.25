@@ -238,7 +238,7 @@ export default function CustomFields() {
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Custom Fields</h1>
               <p className="text-sm sm:text-base text-gray-600 mt-1">
-                Create and manage user-defined fields for tasks, projects, and clients
+                Add your own fields to track custom information on tasks, projects, and clients. For example, create a "Department" dropdown for tasks or a "Budget Code" text field for projects. Click "New Field" to get started.
               </p>
             </div>
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>

@@ -209,7 +209,7 @@ export default function GarageAssistant() {
                 <Bot className="mr-3 text-[var(--garage-navy)]" size={32} />
                 Garage Assistant
               </h1>
-              <p className="text-gray-600 mt-1">AI-powered insights and guidance for your projects</p>
+              <p className="text-gray-600 mt-1">Your AI-powered helper for drafting proposals, planning your day, and getting business insights. Review smart nudges for urgent items, or open the chat to ask questions and get personalized recommendations.</p>
             </div>
           </div>
           <Link href="/create-proposal">

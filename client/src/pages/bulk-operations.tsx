@@ -203,7 +203,7 @@ export default function BulkOperations() {
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Bulk Operations</h1>
               <p className="text-sm sm:text-base text-gray-600 mt-1">
-                Manage multiple items at once with bulk actions, CSV import/export, and batch processing
+                Save time by updating many items at once. Select multiple tasks, projects, or clients using checkboxes, then apply bulk actions like status changes, assignments, or deletions. Export to CSV for spreadsheet editing or import from CSV.
               </p>
             </div>
             <div className="flex items-center gap-2">

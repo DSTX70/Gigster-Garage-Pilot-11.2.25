@@ -260,7 +260,7 @@ export default function SmartSchedulingPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-4xl font-bold text-gray-900 mb-2">Smart Scheduling</h1>
-            <p className="text-gray-600">AI-powered task scheduling and resource optimization</p>
+            <p className="text-gray-600">Let AI optimize your calendar and task assignments. View scheduling recommendations, balance team workloads, and get predictions on project timelines. Switch between Schedule, Recommendations, and Workload tabs to manage different aspects.</p>
           </div>
           <div className="flex items-center space-x-3">
             {statistics && (
