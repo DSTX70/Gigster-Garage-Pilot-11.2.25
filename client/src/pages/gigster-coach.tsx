@@ -254,61 +254,11 @@ export default function GigsterCoachPage() {
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   Response
-                  <div className="flex items-center gap-2">
-                    {isSupported && (
-                      <div className="flex items-center gap-1">
-                        {isSpeaking ? (
-                          <>
-                            {isPaused ? (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => resume()}
-                                title="Resume reading"
-                                data-testid="button-resume-speech"
-                              >
-                                <Play className="h-4 w-4" />
-                              </Button>
-                            ) : (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => pause()}
-                                title="Pause reading"
-                                data-testid="button-pause-speech"
-                              >
-                                <Pause className="h-4 w-4" />
-                              </Button>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => stop()}
-                              title="Stop reading"
-                              data-testid="button-stop-speech"
-                            >
-                              <VolumeX className="h-4 w-4" />
-                            </Button>
-                          </>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => speak(response.answer)}
-                            title="Read aloud"
-                            data-testid="button-speak-response"
-                          >
-                            <Volume2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                    {response.model && (
-                      <Badge variant="outline" className="text-xs">
-                        {response.model}
-                      </Badge>
-                    )}
-                  </div>
+                  {response.model && (
+                    <Badge variant="outline" className="text-xs">
+                      {response.model}
+                    </Badge>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -317,6 +267,59 @@ export default function GigsterCoachPage() {
                     {response.answer}
                   </pre>
                 </div>
+
+                {isSupported && (
+                  <div className="mt-4 flex items-center gap-2">
+                    {isSpeaking ? (
+                      <>
+                        {isPaused ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => resume()}
+                            className="flex items-center gap-2"
+                            data-testid="button-resume-speech"
+                          >
+                            <Play className="h-4 w-4" />
+                            Resume
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => pause()}
+                            className="flex items-center gap-2"
+                            data-testid="button-pause-speech"
+                          >
+                            <Pause className="h-4 w-4" />
+                            Pause
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => stop()}
+                          className="flex items-center gap-2 text-red-600 hover:text-red-700"
+                          data-testid="button-stop-speech"
+                        >
+                          <VolumeX className="h-4 w-4" />
+                          Stop
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => speak(response.answer)}
+                        className="flex items-center gap-2"
+                        data-testid="button-speak-response"
+                      >
+                        <Volume2 className="h-4 w-4" />
+                        Listen
+                      </Button>
+                    )}
+                  </div>
+                )}
 
                 {response.checklist && response.checklist.length > 0 && (
                   <div className="mt-6">
