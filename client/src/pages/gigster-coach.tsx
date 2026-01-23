@@ -12,7 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, MessageSquare, FileText, CheckCircle2, Lightbulb, History, Send, User } from "lucide-react";
+import { Loader2, MessageSquare, FileText, CheckCircle2, Lightbulb, History, Send, User, Volume2, VolumeX, Pause, Play } from "lucide-react";
+import { useTextToSpeech } from "@/hooks/useTextToSpeech";
 import { getCoachContext } from "@/lib/getCoachContext";
 import { Link } from "wouter";
 
@@ -65,6 +66,7 @@ export default function GigsterCoachPage() {
   const [response, setResponse] = useState<CoachResponse | null>(null);
   const [activeTab, setActiveTab] = useState("ask");
   const [profileCtx, setProfileCtx] = useState<GigsterCoachContext | null>(null);
+  const { speak, stop, pause, resume, isSpeaking, isPaused, isSupported } = useTextToSpeech();
 
   useEffect(() => {
     getCoachContext().then((ctx) => setProfileCtx(ctx ?? null));
@@ -252,11 +254,61 @@ export default function GigsterCoachPage() {
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   Response
-                  {response.model && (
-                    <Badge variant="outline" className="text-xs">
-                      {response.model}
-                    </Badge>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {isSupported && (
+                      <div className="flex items-center gap-1">
+                        {isSpeaking ? (
+                          <>
+                            {isPaused ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => resume()}
+                                title="Resume reading"
+                                data-testid="button-resume-speech"
+                              >
+                                <Play className="h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => pause()}
+                                title="Pause reading"
+                                data-testid="button-pause-speech"
+                              >
+                                <Pause className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => stop()}
+                              title="Stop reading"
+                              data-testid="button-stop-speech"
+                            >
+                              <VolumeX className="h-4 w-4" />
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => speak(response.answer)}
+                            title="Read aloud"
+                            data-testid="button-speak-response"
+                          >
+                            <Volume2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                    {response.model && (
+                      <Badge variant="outline" className="text-xs">
+                        {response.model}
+                      </Badge>
+                    )}
+                  </div>
                 </CardTitle>
               </CardHeader>
               <CardContent>
