@@ -9,6 +9,7 @@ import { I18nProvider } from "@/lib/i18n";
 import { DemoModeProvider } from "@/hooks/useDemoMode";
 import { DemoModeBanner, DemoModeStatusBar, StorageModeBanner } from "@/components/DemoModeBanner";
 import { DemoSessionWarning } from "@/components/DemoSessionWarning";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useEffect, useRef } from "react";
 import Home from "@/pages/home";
 import Landing from "@/pages/landing";
@@ -252,17 +253,19 @@ function AppContent() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <I18nProvider>
-        <DemoModeProvider>
-          <MoodPaletteProvider>
-            <TooltipProvider>
-              <AppContent />
-            </TooltipProvider>
-          </MoodPaletteProvider>
-        </DemoModeProvider>
-      </I18nProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <I18nProvider>
+          <DemoModeProvider>
+            <MoodPaletteProvider>
+              <TooltipProvider>
+                <AppContent />
+              </TooltipProvider>
+            </MoodPaletteProvider>
+          </DemoModeProvider>
+        </I18nProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 

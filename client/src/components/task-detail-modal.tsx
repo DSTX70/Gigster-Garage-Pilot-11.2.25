@@ -297,8 +297,13 @@ export function TaskDetailModal({ task, isOpen, onOpenChange }: TaskDetailModalP
 
               {task.progressNotes && Array.isArray(task.progressNotes) && task.progressNotes.length > 0 && (
                 <div className="space-y-3">
-                  {task.progressNotes
-                    .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                  {[...task.progressNotes]
+                    .sort((a: any, b: any) => {
+                      const dateA = a.date || a.createdAt;
+                      const dateB = b.date || b.createdAt;
+                      if (!dateA || !dateB) return 0;
+                      return new Date(dateB).getTime() - new Date(dateA).getTime();
+                    })
                     .map((note: any) => (
                       <div key={note.id} className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
                         <div className="flex items-center justify-between mb-2">
