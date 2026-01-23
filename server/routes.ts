@@ -2443,6 +2443,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { progress, ...updateData } = result.data;
       const task = await storage.updateTask(id, updateData);
+      
+      // Invalidate task-related caches after update
+      try {
+        await AppCache.invalidatePattern('api:GET:/api/tasks');
+        await AppCache.invalidatePattern('tasks:');
+        console.log(`🚀 Cache invalidated for task update: ${id}`);
+      } catch (cacheError) {
+        console.error("Cache invalidation error:", cacheError);
+      }
+      
       res.json(task);
     } catch (error) {
       console.error("Error updating task:", error);
