@@ -29,6 +29,31 @@
   --danger:#c43b3b;
   --info:#2e7ea8;
 
+  /* Module Colors - Visual Differentiation */
+  /* Tasks - Amber */
+  --module-tasks: #F59E0B;
+  --module-tasks-deep: #D97706;
+  --module-tasks-soft: #FFFBEB;
+  --module-tasks-border: #FDE68A;
+  
+  /* Projects - Indigo */
+  --module-projects: #6366F1;
+  --module-projects-deep: #4F46E5;
+  --module-projects-soft: #EEF2FF;
+  --module-projects-border: #C7D2FE;
+  
+  /* Calendar - Emerald */
+  --module-calendar: #10B981;
+  --module-calendar-deep: #059669;
+  --module-calendar-soft: #ECFDF5;
+  --module-calendar-border: #A7F3D0;
+  
+  /* Messages - Sky */
+  --module-messages: #0EA5E9;
+  --module-messages-deep: #0284C7;
+  --module-messages-soft: #F0F9FF;
+  --module-messages-border: #BAE6FD;
+
   /* Elevation */
   --radius:14px;
   --shadow-1:0 1px 2px rgba(0,0,0,.06), 0 8px 24px rgba(11,29,58,.06);

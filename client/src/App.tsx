@@ -61,6 +61,7 @@ import AuditLogging from "@/pages/audit-logging";
 import WhiteLabel from "@/pages/white-label";
 import SmartScheduling from "@/pages/smart-scheduling";
 import CalendarPage from "@/pages/calendar";
+import ProjectsPage from "@/pages/projects";
 import PredictiveAnalytics from "@/pages/predictive-analytics";
 import EmailManagement from "@/pages/email-management";
 import SlackIntegration from "@/pages/slack-integration";
@@ -160,6 +161,7 @@ function Router() {
       <Route path="/tasks" component={Tasks} />
       <Route path="/calendar" component={CalendarPage} />
       <Route path="/productivity" component={Productivity} />
+      <Route path="/project-dashboard" component={ProjectsPage} />
       <Route path="/project/:projectId" component={ProjectDashboard} />
       <Route path="/messages" component={MessagesPage} />
       <Route path="/create-proposal" component={CreateProposal} />
