@@ -30,26 +30,7 @@ import {
   BarChart3
 } from "lucide-react";
 import { format } from "date-fns";
-
-type DthRegistry = {
-  id: string;
-  name: string;
-  description: string | null;
-  hubUrl: string;
-  apiToken: string | null;
-  status: "active" | "inactive" | "pending" | "error";
-  connectionType: "readonly" | "readwrite" | "sync";
-  allowedPaths: string[];
-  blockedPaths: string[];
-  lastSyncAt: string | null;
-  lastHealthCheck: string | null;
-  healthStatus: "healthy" | "degraded" | "unhealthy" | "unknown";
-  syncFrequency: "manual" | "hourly" | "daily" | "weekly";
-  metadata: Record<string, any>;
-  createdById: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
+import type { DthRegistry, DthSyncLog, DthAccessLog } from "@shared/schema";
 
 type DthStats = {
   totalRegistries: number;
@@ -59,34 +40,6 @@ type DthStats = {
   recentSyncs: number;
   totalFilesAccessed: number;
   accessStats: { allowed: number; blocked: number; errors: number };
-};
-
-type DthSyncLog = {
-  id: string;
-  registryId: string;
-  syncType: string;
-  status: string;
-  filesRequested: number;
-  filesSucceeded: number;
-  filesFailed: number;
-  totalBytes: number;
-  durationMs: number | null;
-  errorMessage: string | null;
-  requestedPaths: string[];
-  failedPaths: string[];
-  startedAt: string;
-  completedAt: string | null;
-};
-
-type DthAccessLog = {
-  id: string;
-  registryId: string | null;
-  requestedPath: string;
-  normalizedPath: string | null;
-  accessResult: string;
-  fileSize: number | null;
-  errorMessage: string | null;
-  createdAt: string;
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -125,10 +78,7 @@ function CreateRegistryDialog({ onSuccess }: { onSuccess: () => void }) {
 
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      return apiRequest("/api/dth/registry" as any, {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      return apiRequest("POST", "/api/dth/registry", data);
     },
     onSuccess: () => {
       toast({ title: "Registry created", description: "The DTH registry has been created successfully." });
@@ -353,7 +303,7 @@ export default function DthRegistryPage() {
   const healthCheckMutation = useMutation({
     mutationFn: async (id: string) => {
       setCheckingId(id);
-      return apiRequest(`/api/dth/registry/${id}/health-check` as any, { method: "POST" });
+      return apiRequest("POST", `/api/dth/registry/${id}/health-check`);
     },
     onSuccess: (data: any) => {
       toast({
@@ -373,7 +323,7 @@ export default function DthRegistryPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      return apiRequest(`/api/dth/registry/${id}` as any, { method: "DELETE" });
+      return apiRequest("DELETE", `/api/dth/registry/${id}`);
     },
     onSuccess: () => {
       toast({ title: "Registry deleted", description: "The DTH registry has been removed." });
@@ -387,10 +337,7 @@ export default function DthRegistryPage() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<DthRegistry> }) => {
-      return apiRequest(`/api/dth/registry/${id}` as any, { 
-        method: "PATCH",
-        body: JSON.stringify(data),
-      });
+      return apiRequest("PATCH", `/api/dth/registry/${id}`, data);
     },
     onSuccess: () => {
       toast({ title: "Registry updated" });
