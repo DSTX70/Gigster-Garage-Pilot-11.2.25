@@ -151,58 +151,54 @@ export function CoachSidebar(props: Props) {
               {resp.answer}
             </div>
 
-            {isSupported && (
-              <div className="flex items-center gap-2">
-                {isSpeaking ? (
-                  <>
-                    {isPaused ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => resume()}
-                        className="flex items-center gap-1 text-xs"
-                        data-testid="button-resume-speech"
-                      >
-                        <Play className="h-3 w-3" />
-                        Resume
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => pause()}
-                        className="flex items-center gap-1 text-xs"
-                        data-testid="button-pause-speech"
-                      >
-                        <Pause className="h-3 w-3" />
-                        Pause
-                      </Button>
-                    )}
+            <div className="flex items-center gap-2 mt-3 p-2 bg-blue-50 rounded-lg border border-blue-200">
+              <Volume2 className="h-4 w-4 text-blue-600 flex-shrink-0" />
+              {isSpeaking ? (
+                <>
+                  {isPaused ? (
                     <Button
-                      variant="outline"
                       size="sm"
-                      onClick={() => stop()}
-                      className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700"
-                      data-testid="button-stop-speech"
+                      onClick={() => resume()}
+                      className="flex items-center gap-1 text-xs bg-blue-600 hover:bg-blue-700 text-white"
+                      data-testid="button-resume-speech"
                     >
-                      <VolumeX className="h-3 w-3" />
-                      Stop
+                      <Play className="h-3 w-3" />
+                      Resume
                     </Button>
-                  </>
-                ) : (
+                  ) : (
+                    <Button
+                      size="sm"
+                      onClick={() => pause()}
+                      className="flex items-center gap-1 text-xs bg-amber-500 hover:bg-amber-600 text-white"
+                      data-testid="button-pause-speech"
+                    >
+                      <Pause className="h-3 w-3" />
+                      Pause
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => speak(resp.answer)}
-                    className="flex items-center gap-1 text-xs"
-                    data-testid="button-speak-response"
+                    onClick={() => stop()}
+                    className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700 border-red-200"
+                    data-testid="button-stop-speech"
                   >
-                    <Volume2 className="h-3 w-3" />
-                    Listen
+                    <VolumeX className="h-3 w-3" />
+                    Stop
                   </Button>
-                )}
-              </div>
-            )}
+                </>
+              ) : (
+                <Button
+                  size="sm"
+                  onClick={() => speak(resp.answer)}
+                  className="flex items-center gap-1 text-xs bg-blue-600 hover:bg-blue-700 text-white"
+                  data-testid="button-speak-response"
+                >
+                  <Volume2 className="h-3 w-3" />
+                  Listen to Answer
+                </Button>
+              )}
+            </div>
 
             {Array.isArray(resp?.suggestions) && resp.suggestions.length > 0 && (
               <div className="space-y-1">

@@ -268,58 +268,55 @@ export default function GigsterCoachPage() {
                   </pre>
                 </div>
 
-                {isSupported && (
-                  <div className="mt-4 flex items-center gap-2">
-                    {isSpeaking ? (
-                      <>
-                        {isPaused ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => resume()}
-                            className="flex items-center gap-2"
-                            data-testid="button-resume-speech"
-                          >
-                            <Play className="h-4 w-4" />
-                            Resume
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => pause()}
-                            className="flex items-center gap-2"
-                            data-testid="button-pause-speech"
-                          >
-                            <Pause className="h-4 w-4" />
-                            Pause
-                          </Button>
-                        )}
+                <div className="mt-4 flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <Volume2 className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                  <span className="text-sm text-blue-700 font-medium">Text-to-Speech:</span>
+                  {isSpeaking ? (
+                    <>
+                      {isPaused ? (
                         <Button
-                          variant="outline"
                           size="sm"
-                          onClick={() => stop()}
-                          className="flex items-center gap-2 text-red-600 hover:text-red-700"
-                          data-testid="button-stop-speech"
+                          onClick={() => resume()}
+                          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                          data-testid="button-resume-speech"
                         >
-                          <VolumeX className="h-4 w-4" />
-                          Stop
+                          <Play className="h-4 w-4" />
+                          Resume
                         </Button>
-                      </>
-                    ) : (
+                      ) : (
+                        <Button
+                          size="sm"
+                          onClick={() => pause()}
+                          className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white"
+                          data-testid="button-pause-speech"
+                        >
+                          <Pause className="h-4 w-4" />
+                          Pause
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => speak(response.answer)}
-                        className="flex items-center gap-2"
-                        data-testid="button-speak-response"
+                        onClick={() => stop()}
+                        className="flex items-center gap-2 text-red-600 hover:text-red-700 border-red-200"
+                        data-testid="button-stop-speech"
                       >
-                        <Volume2 className="h-4 w-4" />
-                        Listen
+                        <VolumeX className="h-4 w-4" />
+                        Stop
                       </Button>
-                    )}
-                  </div>
-                )}
+                    </>
+                  ) : (
+                    <Button
+                      size="sm"
+                      onClick={() => speak(response.answer)}
+                      className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                      data-testid="button-speak-response"
+                    >
+                      <Volume2 className="h-4 w-4" />
+                      Listen to Answer
+                    </Button>
+                  )}
+                </div>
 
                 {response.checklist && response.checklist.length > 0 && (
                   <div className="mt-6">
