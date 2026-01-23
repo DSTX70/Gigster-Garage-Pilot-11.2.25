@@ -2444,10 +2444,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { progress, ...updateData } = result.data;
       const task = await storage.updateTask(id, updateData);
       
-      // Invalidate task-related caches after update
+      // Invalidate task-related caches after update (use * wildcard for pattern matching)
       try {
-        await AppCache.invalidatePattern('api:GET:/api/tasks');
-        await AppCache.invalidatePattern('tasks:');
+        await AppCache.invalidatePattern('api:GET:/api/tasks*');
+        await AppCache.invalidatePattern('tasks:*');
         console.log(`🚀 Cache invalidated for task update: ${id}`);
       } catch (cacheError) {
         console.error("Cache invalidation error:", cacheError);
