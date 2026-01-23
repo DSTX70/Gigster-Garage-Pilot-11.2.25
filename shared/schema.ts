@@ -1701,3 +1701,93 @@ export const profileUpdateLog = pgTable("profile_update_log", {
 
 export type ProfileUpdateLog = typeof profileUpdateLog.$inferSelect;
 export type InsertProfileUpdateLog = typeof profileUpdateLog.$inferInsert;
+
+// ============================================================
+// DTH (DreamTeamHub) Registry System
+// ============================================================
+
+// DTH Registry - Stores registered DTH connections
+export const dthRegistry = pgTable("dth_registry", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  description: text("description"),
+  hubUrl: varchar("hub_url").notNull(),
+  apiToken: varchar("api_token"),
+  status: varchar("status", { enum: ["active", "inactive", "pending", "error"] }).default("pending"),
+  connectionType: varchar("connection_type", { enum: ["readonly", "readwrite", "sync"] }).default("readonly"),
+  allowedPaths: jsonb("allowed_paths").$type<string[]>().default(["client/", "server/", "shared/", "docs/"]),
+  blockedPaths: jsonb("blocked_paths").$type<string[]>().default([".git", "node_modules", ".env"]),
+  lastSyncAt: timestamp("last_sync_at"),
+  lastHealthCheck: timestamp("last_health_check"),
+  healthStatus: varchar("health_status", { enum: ["healthy", "degraded", "unhealthy", "unknown"] }).default("unknown"),
+  syncFrequency: varchar("sync_frequency", { enum: ["manual", "hourly", "daily", "weekly"] }).default("manual"),
+  metadata: jsonb("metadata").$type<Record<string, any>>().default({}),
+  createdById: varchar("created_by_id").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type DthRegistry = typeof dthRegistry.$inferSelect;
+export type InsertDthRegistry = typeof dthRegistry.$inferInsert;
+
+export const insertDthRegistrySchema = createInsertSchema(dthRegistry).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastSyncAt: true,
+  lastHealthCheck: true,
+});
+
+// DTH Sync Logs - Tracks sync operations between systems
+export const dthSyncLogs = pgTable("dth_sync_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  registryId: varchar("registry_id").references(() => dthRegistry.id, { onDelete: "cascade" }).notNull(),
+  syncType: varchar("sync_type", { enum: ["full", "incremental", "files", "diagnostics"] }).notNull(),
+  status: varchar("status", { enum: ["started", "in_progress", "completed", "failed", "cancelled"] }).default("started"),
+  filesRequested: integer("files_requested").default(0),
+  filesSucceeded: integer("files_succeeded").default(0),
+  filesFailed: integer("files_failed").default(0),
+  totalBytes: integer("total_bytes").default(0),
+  durationMs: integer("duration_ms"),
+  errorMessage: text("error_message"),
+  requestedPaths: jsonb("requested_paths").$type<string[]>().default([]),
+  failedPaths: jsonb("failed_paths").$type<string[]>().default([]),
+  initiatedBy: varchar("initiated_by", { enum: ["system", "user", "webhook", "scheduled"] }).default("system"),
+  initiatedById: varchar("initiated_by_id").references(() => users.id),
+  metadata: jsonb("metadata").$type<Record<string, any>>().default({}),
+  startedAt: timestamp("started_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+});
+
+export type DthSyncLog = typeof dthSyncLogs.$inferSelect;
+export type InsertDthSyncLog = typeof dthSyncLogs.$inferInsert;
+
+export const insertDthSyncLogSchema = createInsertSchema(dthSyncLogs).omit({
+  id: true,
+  startedAt: true,
+  completedAt: true,
+});
+
+// DTH Access Logs - Detailed logging of file access requests
+export const dthAccessLogs = pgTable("dth_access_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  registryId: varchar("registry_id").references(() => dthRegistry.id, { onDelete: "cascade" }),
+  syncLogId: varchar("sync_log_id").references(() => dthSyncLogs.id, { onDelete: "set null" }),
+  requestedPath: varchar("requested_path").notNull(),
+  normalizedPath: varchar("normalized_path"),
+  accessResult: varchar("access_result", { enum: ["allowed", "blocked", "not_found", "error", "too_large"] }).notNull(),
+  fileSize: integer("file_size"),
+  errorMessage: text("error_message"),
+  clientIp: varchar("client_ip"),
+  userAgent: varchar("user_agent"),
+  requestHeaders: jsonb("request_headers").$type<Record<string, string>>().default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type DthAccessLog = typeof dthAccessLogs.$inferSelect;
+export type InsertDthAccessLog = typeof dthAccessLogs.$inferInsert;
+
+export const insertDthAccessLogSchema = createInsertSchema(dthAccessLogs).omit({
+  id: true,
+  createdAt: true,
+});
