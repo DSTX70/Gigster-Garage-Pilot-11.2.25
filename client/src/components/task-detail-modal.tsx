@@ -159,8 +159,8 @@ export function TaskDetailModal({ task, isOpen, onOpenChange }: TaskDetailModalP
               {task.description}
             </span>
             <div className="flex items-center gap-2">
-              <Badge className={getPriorityColor(task.priority)}>
-                {getPriorityLabel(task.priority)}
+              <Badge className={getPriorityColor(task.priority || 'medium')}>
+                {getPriorityLabel(task.priority || 'medium')}
               </Badge>
               {statusInfo && (
                 <Badge className={statusInfo.color}>
@@ -191,17 +191,17 @@ export function TaskDetailModal({ task, isOpen, onOpenChange }: TaskDetailModalP
                   </span>
                 </div>
                 
-                {task.assignedTo && (
+                {task.assignedToId && (
                   <div className="flex items-center gap-2 text-sm text-blue-600">
                     <User size={16} />
-                    <span>{t('assignedTo')}: {task.assignedTo.name}</span>
+                    <span>{t('assignedTo')}: {task.assignedToId}</span>
                   </div>
                 )}
 
-                {task.project && (
+                {task.projectId && (
                   <div className="flex items-center gap-2 text-sm text-green-600">
                     <FileText size={16} />
-                    <span>{t('project')}: {task.project.name}</span>
+                    <span>{t('project')}: {task.projectId}</span>
                   </div>
                 )}
               </div>
@@ -210,7 +210,7 @@ export function TaskDetailModal({ task, isOpen, onOpenChange }: TaskDetailModalP
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <Clock size={16} />
                   <span>
-                    {formatDistanceToNow(new Date(task.createdAt), { addSuffix: true })}
+                    {task.createdAt ? formatDistanceToNow(new Date(task.createdAt), { addSuffix: true }) : t('none')}
                   </span>
                 </div>
                 
