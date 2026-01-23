@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, MessageSquare, FileText, CheckCircle2, Lightbulb, History, Send, User, Volume2, VolumeX, Pause, Play } from "lucide-react";
+import { Loader2, MessageSquare, FileText, CheckCircle2, Lightbulb, History, Send, User, Volume2, VolumeX, Pause, Play, Paperclip, X } from "lucide-react";
 import { useTextToSpeech } from "@/hooks/useTextToSpeech";
 import { getCoachContext } from "@/lib/getCoachContext";
 import { Link } from "wouter";
@@ -66,7 +66,36 @@ export default function GigsterCoachPage() {
   const [response, setResponse] = useState<CoachResponse | null>(null);
   const [activeTab, setActiveTab] = useState("ask");
   const [profileCtx, setProfileCtx] = useState<GigsterCoachContext | null>(null);
+  const [attachedFile, setAttachedFile] = useState<{ name: string; content: string; type: string } | null>(null);
   const { speak, stop, pause, resume, isSpeaking, isPaused, isSupported } = useTextToSpeech();
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      toast({ title: "File too large", description: "Maximum file size is 5MB", variant: "destructive" });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      setAttachedFile({ name: file.name, content, type: file.type });
+      toast({ title: "File attached", description: `${file.name} ready to send` });
+    };
+    reader.onerror = () => {
+      toast({ title: "Error", description: "Failed to read file", variant: "destructive" });
+    };
+    
+    if (file.type.startsWith("text/") || file.type === "application/json" || file.name.endsWith(".md")) {
+      reader.readAsText(file);
+    } else {
+      reader.readAsDataURL(file);
+    }
+    e.target.value = "";
+  };
 
   useEffect(() => {
     getCoachContext().then((ctx) => setProfileCtx(ctx ?? null));
@@ -78,13 +107,14 @@ export default function GigsterCoachPage() {
   });
 
   const askMutation = useMutation({
-    mutationFn: async (data: { question: string }) => {
+    mutationFn: async (data: { question: string; attachment?: { name: string; content: string; type: string } }) => {
       const coachContext = await getCoachContext();
       const res = await apiRequest<CoachResponse>("POST", "/api/gigster-coach/ask", { ...data, coachContext });
       return res;
     },
     onSuccess: (data) => {
       setResponse(data);
+      setAttachedFile(null);
       queryClient.invalidateQueries({ queryKey: ["/api/gigster-coach/history"] });
       toast({ title: "Response received", description: "GigsterCoach has answered your question." });
     },
@@ -94,13 +124,14 @@ export default function GigsterCoachPage() {
   });
 
   const draftMutation = useMutation({
-    mutationFn: async (data: { question: string; draftTarget?: string }) => {
+    mutationFn: async (data: { question: string; draftTarget?: string; attachment?: { name: string; content: string; type: string } }) => {
       const coachContext = await getCoachContext();
       const res = await apiRequest<CoachResponse>("POST", "/api/gigster-coach/draft", { ...data, coachContext });
       return res;
     },
     onSuccess: (data) => {
       setResponse(data);
+      setAttachedFile(null);
       queryClient.invalidateQueries({ queryKey: ["/api/gigster-coach/history"] });
       toast({ title: "Draft generated", description: "GigsterCoach has drafted content for you." });
     },
@@ -110,13 +141,14 @@ export default function GigsterCoachPage() {
   });
 
   const reviewMutation = useMutation({
-    mutationFn: async (data: { question: string; artifactText?: string }) => {
+    mutationFn: async (data: { question: string; artifactText?: string; attachment?: { name: string; content: string; type: string } }) => {
       const coachContext = await getCoachContext();
       const res = await apiRequest<CoachResponse>("POST", "/api/gigster-coach/review", { ...data, coachContext });
       return res;
     },
     onSuccess: (data) => {
       setResponse(data);
+      setAttachedFile(null);
       queryClient.invalidateQueries({ queryKey: ["/api/gigster-coach/history"] });
       toast({ title: "Review complete", description: "GigsterCoach has reviewed your content." });
     },
@@ -128,12 +160,14 @@ export default function GigsterCoachPage() {
   const handleSubmit = () => {
     if (!question.trim()) return;
     
+    const payload = { question, attachment: attachedFile || undefined };
+    
     if (activeTab === "ask") {
-      askMutation.mutate({ question });
+      askMutation.mutate(payload);
     } else if (activeTab === "draft") {
-      draftMutation.mutate({ question });
+      draftMutation.mutate(payload);
     } else if (activeTab === "review") {
-      reviewMutation.mutate({ question });
+      reviewMutation.mutate(payload);
     }
   };
 
@@ -225,6 +259,41 @@ export default function GigsterCoachPage() {
                     className="min-h-[120px] mt-2"
                     data-testid="input-question"
                   />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="file"
+                    id="coach-file-upload"
+                    className="hidden"
+                    accept=".txt,.md,.json,.csv,.pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+                    onChange={handleFileUpload}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => document.getElementById('coach-file-upload')?.click()}
+                    className="flex items-center gap-2"
+                    data-testid="button-attach-file"
+                  >
+                    <Paperclip className="h-4 w-4" />
+                    Attach File
+                  </Button>
+                  {attachedFile && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-md text-sm">
+                      <FileText className="h-4 w-4" />
+                      <span className="truncate max-w-[200px]">{attachedFile.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setAttachedFile(null)}
+                        className="hover:text-red-500"
+                        data-testid="button-remove-file"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
                 </div>
                 
                 <Button 

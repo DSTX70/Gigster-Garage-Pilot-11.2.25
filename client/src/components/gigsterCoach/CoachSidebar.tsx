@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Lightbulb, CheckCircle2, Volume2, VolumeX, Pause, Play } from "lucide-react";
+import { Loader2, Lightbulb, CheckCircle2, Volume2, VolumeX, Pause, Play, Paperclip, X } from "lucide-react";
 import { SuggestionApplyButton } from "@/components/gigsterCoach/SuggestionApplyButton";
 import { useTextToSpeech } from "@/hooks/useTextToSpeech";
 
@@ -26,7 +26,31 @@ export function CoachSidebar(props: Props) {
   const [draftTarget, setDraftTarget] = useState<string>("client_message");
   const [resp, setResp] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [attachedFile, setAttachedFile] = useState<{ name: string; content: string; type: string } | null>(null);
   const { speak, stop, pause, resume, isSpeaking, isPaused, isSupported } = useTextToSpeech();
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      setAttachedFile({ name: file.name, content, type: file.type });
+    };
+    
+    if (file.type.startsWith("text/") || file.type === "application/json" || file.name.endsWith(".md")) {
+      reader.readAsText(file);
+    } else {
+      reader.readAsDataURL(file);
+    }
+    e.target.value = "";
+  };
 
   async function run() {
     setLoading(true);
@@ -40,6 +64,7 @@ export function CoachSidebar(props: Props) {
         structuredFields: props.structuredFields,
         artifactText: props.artifactText,
         coachContext,
+        attachment: attachedFile || undefined,
       };
 
       let path = "/api/gigster-coach/ask";
@@ -54,6 +79,7 @@ export function CoachSidebar(props: Props) {
 
       const r = await apiRequest("POST", path, body);
       setResp(r);
+      setAttachedFile(null);
     } finally {
       setLoading(false);
     }
@@ -128,6 +154,40 @@ export function CoachSidebar(props: Props) {
           onChange={(e) => setQuestion(e.target.value)}
           data-testid="input-coach-question"
         />
+
+        <div className="flex items-center gap-2">
+          <input
+            type="file"
+            id="coach-sidebar-file-upload"
+            className="hidden"
+            accept=".txt,.md,.json,.csv,.pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+            onChange={handleFileUpload}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => document.getElementById('coach-sidebar-file-upload')?.click()}
+            className="flex items-center gap-1 text-xs"
+            data-testid="button-sidebar-attach-file"
+          >
+            <Paperclip className="h-3 w-3" />
+            Attach
+          </Button>
+          {attachedFile && (
+            <div className="flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs">
+              <span className="truncate max-w-[100px]">{attachedFile.name}</span>
+              <button
+                type="button"
+                onClick={() => setAttachedFile(null)}
+                className="hover:text-red-500"
+                data-testid="button-sidebar-remove-file"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )}
+        </div>
 
         <Button
           className="w-full"
