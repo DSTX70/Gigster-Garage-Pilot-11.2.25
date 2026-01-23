@@ -372,27 +372,35 @@ export default function GigsterCoachPage() {
               ) : history && history.length > 0 ? (
                 <ScrollArea className="h-[400px]">
                   <div className="space-y-3">
-                    {history.slice(0, 20).map((item) => (
-                      <div
-                        key={item.id}
-                        className="p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
-                        onClick={() => {
-                          setQuestion(item.question);
-                          setResponse({ answer: item.answer, model: item.model, tokensUsed: item.tokensUsed });
-                        }}
-                        data-testid={`history-item-${item.id}`}
-                      >
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="secondary" className="text-xs capitalize">
-                            {item.intent}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(item.createdAt).toLocaleDateString()}
-                          </span>
+                    {history.slice(0, 20).map((item) => {
+                      const safeQuestion = typeof item.question === 'string' 
+                        ? item.question.replace(/<[^>]*>/g, '').substring(0, 200) 
+                        : 'Question';
+                      const safeAnswer = typeof item.answer === 'string'
+                        ? item.answer.replace(/<[^>]*>/g, '').substring(0, 500)
+                        : '';
+                      return (
+                        <div
+                          key={item.id}
+                          className="p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => {
+                            setQuestion(item.question);
+                            setResponse({ answer: safeAnswer, model: item.model, tokensUsed: item.tokensUsed });
+                          }}
+                          data-testid={`history-item-${item.id}`}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant="secondary" className="text-xs capitalize">
+                              {item.intent}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(item.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <p className="text-sm line-clamp-2">{safeQuestion}</p>
                         </div>
-                        <p className="text-sm line-clamp-2">{item.question}</p>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </ScrollArea>
               ) : (

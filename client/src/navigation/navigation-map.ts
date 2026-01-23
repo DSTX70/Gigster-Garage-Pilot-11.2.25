@@ -109,6 +109,16 @@ export const navigationGroups: NavGroup[] = [
         rolesAllowed: ['user', 'admin'],
         description: 'Schedule and events',
       },
+      {
+        id: 'gigster-coach-core',
+        path: '/gigster-coach',
+        title: 'Coach',
+        icon: Brain,
+        iconName: 'Brain',
+        requiresAuth: true,
+        rolesAllowed: ['user', 'admin'],
+        description: 'AI business coach',
+      },
     ],
   },
   {
