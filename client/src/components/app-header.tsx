@@ -37,6 +37,7 @@ const coreFeatures = [
   { id: 'projects', title: 'Projects', icon: Briefcase, path: '/project-dashboard' },
   { id: 'calendar', title: 'Calendar', icon: Calendar, path: '/calendar' },
   { id: 'messages', title: 'Messages', icon: MessageSquare, path: '/messages' },
+  { id: 'coach', title: 'Coach', icon: Brain, path: '/gigster-coach' },
 ];
 
 const businessOperations = [
