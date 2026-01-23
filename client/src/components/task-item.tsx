@@ -27,19 +27,32 @@ export function TaskItem({ task }: TaskItemProps) {
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Task> }) => {
       return apiRequest("PATCH", `/api/tasks/${id}`, updates);
     },
+    onMutate: async ({ id, updates }) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/tasks"] });
+      const previousTasks = queryClient.getQueryData<Task[]>(["/api/tasks"]);
+      queryClient.setQueryData<Task[]>(["/api/tasks"], (old) =>
+        old?.map((t) => (t.id === id ? { ...t, ...updates } : t)) ?? []
+      );
+      return { previousTasks };
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       toast({
         title: task.completed ? "Task marked as incomplete" : "Task completed!",
         description: task.completed ? "Task is now active" : "Great job staying productive.",
       });
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _variables, context) => {
+      if (context?.previousTasks) {
+        queryClient.setQueryData(["/api/tasks"], context.previousTasks);
+      }
       toast({
         title: "Error",
         description: error.message || "Failed to update task",
         variant: "destructive",
       });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
     },
   });
 
@@ -47,19 +60,32 @@ export function TaskItem({ task }: TaskItemProps) {
     mutationFn: async (id: string) => {
       await apiRequest("DELETE", `/api/tasks/${id}`);
     },
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/tasks"] });
+      const previousTasks = queryClient.getQueryData<Task[]>(["/api/tasks"]);
+      queryClient.setQueryData<Task[]>(["/api/tasks"], (old) =>
+        old?.filter((t) => t.id !== id) ?? []
+      );
+      return { previousTasks };
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       toast({
         title: "Task deleted",
         description: "Task has been removed successfully.",
       });
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _id, context) => {
+      if (context?.previousTasks) {
+        queryClient.setQueryData(["/api/tasks"], context.previousTasks);
+      }
       toast({
         title: "Error",
         description: error.message || "Failed to delete task",
         variant: "destructive",
       });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
     },
   });
 
