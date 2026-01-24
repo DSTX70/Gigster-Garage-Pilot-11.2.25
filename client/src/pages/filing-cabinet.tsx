@@ -179,9 +179,44 @@ export default function FilingCabinet() {
   };
 
   // Document actions
-  const handleDownloadDocument = (document: DocumentSearchResult) => {
+  const handleDownloadDocument = async (document: DocumentSearchResult) => {
     if (document.fileUrl) {
-      window.open(document.fileUrl, '_blank');
+      try {
+        // First check if file exists
+        const response = await fetch(document.fileUrl, { method: 'HEAD' });
+        if (response.ok) {
+          window.open(document.fileUrl, '_blank');
+        } else {
+          // File not found - offer alternatives
+          const editorRoute = getEditorRoute(document);
+          if (editorRoute) {
+            toast({
+              title: "File Not Available",
+              description: "The PDF file was not generated. Opening the editor so you can regenerate it.",
+            });
+            setLocation(editorRoute);
+          } else {
+            toast({
+              title: "File Not Available", 
+              description: "The file for this document was not created. This may happen if PDF generation was unavailable when the document was saved.",
+              variant: "destructive"
+            });
+          }
+        }
+      } catch (error) {
+        // Network error or other issue
+        toast({
+          title: "Download Error",
+          description: "Unable to access the file. Please try again.",
+          variant: "destructive"
+        });
+      }
+    } else {
+      toast({
+        title: "No File",
+        description: "This document does not have a downloadable file.",
+        variant: "destructive"
+      });
     }
   };
 

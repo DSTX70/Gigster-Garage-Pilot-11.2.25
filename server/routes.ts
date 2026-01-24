@@ -7191,6 +7191,7 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
   });
 
   // Serve files from /storage/* paths (legacy file URLs from invoices, contracts, presentations)
+  // Support both GET and HEAD for file existence checks
   app.get("/storage/*", requireAuth, async (req, res) => {
     try {
       const objectPath = req.path.replace('/storage/', '');
@@ -7237,6 +7238,33 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
     } catch (error) {
       console.error("Error serving storage file:", error);
       res.status(500).json({ message: "Failed to serve file" });
+    }
+  });
+
+  // HEAD handler for /storage/* - allows checking if file exists without downloading
+  app.head("/storage/*", requireAuth, async (req, res) => {
+    try {
+      const objectPath = req.path.replace('/storage/', '');
+      const storageDir = '/home/runner/workspace/gigster-garage-files/private';
+      const filePath = `${storageDir}/${objectPath}`;
+      
+      const fs = await import('fs').then(m => m.promises);
+      const path = await import('path');
+      
+      const resolvedPath = path.resolve(filePath);
+      if (!resolvedPath.startsWith(storageDir)) {
+        return res.sendStatus(403);
+      }
+      
+      try {
+        const stats = await fs.stat(resolvedPath);
+        res.setHeader('Content-Length', stats.size);
+        res.sendStatus(200);
+      } catch {
+        res.sendStatus(404);
+      }
+    } catch (error) {
+      res.sendStatus(500);
     }
   });
 
