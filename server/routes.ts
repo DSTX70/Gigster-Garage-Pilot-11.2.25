@@ -7190,6 +7190,56 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
     }
   });
 
+  // Serve files from /storage/* paths (legacy file URLs from invoices, contracts, presentations)
+  app.get("/storage/*", requireAuth, async (req, res) => {
+    try {
+      const objectPath = req.path.replace('/storage/', '');
+      const storageDir = '/home/runner/workspace/gigster-garage-files/private';
+      const filePath = `${storageDir}/${objectPath}`;
+      
+      const fs = await import('fs').then(m => m.promises);
+      const path = await import('path');
+      
+      // Security: ensure path doesn't escape storage directory
+      const resolvedPath = path.resolve(filePath);
+      if (!resolvedPath.startsWith(storageDir)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Check if file exists
+      try {
+        await fs.access(resolvedPath);
+      } catch {
+        return res.status(404).json({ message: "File not found" });
+      }
+      
+      // Determine content type based on extension
+      const ext = path.extname(resolvedPath).toLowerCase();
+      const contentTypes: Record<string, string> = {
+        '.pdf': 'application/pdf',
+        '.html': 'text/html',
+        '.json': 'application/json',
+        '.txt': 'text/plain',
+        '.md': 'text/markdown',
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.svg': 'image/svg+xml',
+      };
+      
+      const contentType = contentTypes[ext] || 'application/octet-stream';
+      res.setHeader('Content-Type', contentType);
+      
+      // Stream the file
+      const fileContent = await fs.readFile(resolvedPath);
+      res.send(fileContent);
+    } catch (error) {
+      console.error("Error serving storage file:", error);
+      res.status(500).json({ message: "Failed to serve file" });
+    }
+  });
+
   // Get upload URL for file uploads
   app.post("/api/objects/upload", requireAuth, async (req, res) => {
     try {
