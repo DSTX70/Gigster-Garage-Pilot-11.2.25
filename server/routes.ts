@@ -13,7 +13,7 @@ import { z } from "zod";
 import { storage } from "./storage";
 import { sendHighPriorityTaskNotification, sendSMSNotification, sendProposalEmail, sendInvoiceEmail, sendMessageAsEmail, parseInboundEmail } from "./emailService";
 import { generateInvoicePDF, generateProposalPDF, generateContractPDF, generatePresentationPDF } from "./pdfService";
-import { taskSchema, insertTaskSchema, insertProjectSchema, insertTemplateSchema, insertProposalSchema, insertClientSchema, insertClientDocumentSchema, insertInvoiceSchema, partialInvoiceUpdateSchema, insertPaymentSchema, insertContractSchema, insertPresentationSchema, insertUserSchema, onboardingSchema, updateTaskSchema, updateTemplateSchema, updateProposalSchema, updateTimeLogSchema, startTimerSchema, stopTimerSchema, generateProposalSchema, sendProposalSchema, directProposalSchema, insertMessageSchema, insertAgentSchema, insertAgentVisibilityFlagSchema, insertAgentGraduationPlanSchema, userProfiles, businessProfiles, onboardingProgress } from "@shared/schema";
+import { taskSchema, insertTaskSchema, insertProjectSchema, insertTemplateSchema, insertProposalSchema, insertClientSchema, insertClientDocumentSchema, insertInvoiceSchema, partialInvoiceUpdateSchema, insertPaymentSchema, insertContractSchema, baseInsertContractSchema, insertPresentationSchema, insertUserSchema, onboardingSchema, updateTaskSchema, updateTemplateSchema, updateProposalSchema, updateTimeLogSchema, startTimerSchema, stopTimerSchema, generateProposalSchema, sendProposalSchema, directProposalSchema, insertMessageSchema, insertAgentSchema, insertAgentVisibilityFlagSchema, insertAgentGraduationPlanSchema, userProfiles, businessProfiles, onboardingProgress } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { db } from "./db";
 import { calculateInvoiceTotals, validateInvoiceTotals, calculateBalanceDue } from "./utils/invoice-calculations";
@@ -3942,8 +3942,10 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
         return res.status(404).json({ error: "Contract not found" });
       }
 
-      const updateResult = insertContractSchema.safeParse(req.body);
+      // Use partial schema for updates - allows partial field updates
+      const updateResult = baseInsertContractSchema.partial().safeParse(req.body);
       if (!updateResult.success) {
+        console.error("Contract update validation failed:", updateResult.error.errors);
         return res.status(400).json({ error: "Invalid contract data", details: updateResult.error.errors });
       }
       // Sanitize foreign key fields to prevent empty string constraint violations

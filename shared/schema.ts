@@ -888,7 +888,7 @@ export const invoiceSchema = baseInsertInvoiceSchema.omit({ id: true, createdAt:
 export const selectPaymentSchema = createSelectSchema(payments);
 export const paymentSchema = insertPaymentSchema.omit({ id: true, createdAt: true });
 
-const baseInsertContractSchema = createInsertSchema(contracts, {
+export const baseInsertContractSchema = createInsertSchema(contracts, {
   title: z.string().min(1, "Contract title is required").max(200, "Title must be less than 200 characters"),
   contractNumber: z.string().optional(),
   clientName: z.string().min(1, "Client name is required").max(100, "Client name must be less than 100 characters"),
