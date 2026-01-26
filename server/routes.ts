@@ -7000,10 +7000,15 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
         });
       }
 
-      const payment = await storage.createPayment({
+      // Convert empty strings to null for foreign key fields
+      const paymentData = {
         ...result.data,
-        paymentDate: result.data.paymentDate.toISOString()
-      });
+        paymentDate: result.data.paymentDate.toISOString(),
+        invoiceId: result.data.invoiceId?.trim() || null,
+        clientId: result.data.clientId?.trim() || null
+      };
+      
+      const payment = await storage.createPayment(paymentData);
       
       // Update invoice paid amounts if payment is linked to an invoice
       if (payment.invoiceId) {
