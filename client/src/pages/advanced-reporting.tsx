@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DateRange } from '@/components/ui/date-range-picker';
@@ -97,6 +99,9 @@ export default function AdvancedReportingPage() {
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeTab, setActiveTab] = useState('templates');
+  const [showCustomReportForm, setShowCustomReportForm] = useState(false);
+  const [customReportName, setCustomReportName] = useState('');
+  const [customReportDescription, setCustomReportDescription] = useState('');
 
   const { data: projects = [] } = useQuery({
     queryKey: ['/api/projects']
@@ -155,8 +160,8 @@ export default function AdvancedReportingPage() {
 
   const generateReportMutation = useMutation({
     mutationFn: async (params: any) => {
-      const response = await apiRequest('POST', '/api/reports/generate', params);
-      return response.json();
+      // apiRequest already returns parsed JSON, don't call .json() again
+      return await apiRequest('POST', '/api/reports/generate', params);
     },
     onSuccess: (data) => {
       setReportData(data);
@@ -175,6 +180,46 @@ export default function AdvancedReportingPage() {
       });
     }
   });
+
+  const createReportMutation = useMutation({
+    mutationFn: async (params: { name: string; description: string; type: string }) => {
+      return await apiRequest('POST', '/api/reports', params);
+    },
+    onSuccess: () => {
+      setShowCustomReportForm(false);
+      setCustomReportName('');
+      setCustomReportDescription('');
+      queryClient.invalidateQueries({ queryKey: ['/api/reports'] });
+      toast({
+        title: "Report Created",
+        description: "Your custom report has been created successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Creation Failed",
+        description: "Failed to create custom report. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const handleCreateCustomReport = () => {
+    if (!customReportName.trim()) {
+      toast({
+        title: "Name Required",
+        description: "Please enter a name for your custom report.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    createReportMutation.mutate({
+      name: customReportName,
+      description: customReportDescription,
+      type: selectedTemplate || 'custom'
+    });
+  };
 
   const handleGenerateReport = () => {
     if (!selectedTemplate) {
@@ -271,7 +316,11 @@ export default function AdvancedReportingPage() {
                 </Button>
               </>
             )}
-            <Button className="bg-teal-600 hover:bg-teal-700">
+            <Button 
+              className="bg-teal-600 hover:bg-teal-700"
+              onClick={() => setShowCustomReportForm(true)}
+              data-testid="button-create-custom-report"
+            >
               <Plus className="h-4 w-4 mr-2" />
               Create Custom Report
             </Button>
@@ -591,6 +640,68 @@ export default function AdvancedReportingPage() {
           </div>
         </div>
       </div>
+
+      {/* Create Custom Report Dialog */}
+      <Dialog open={showCustomReportForm} onOpenChange={setShowCustomReportForm}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Create Custom Report</DialogTitle>
+            <DialogDescription>
+              Create a new custom report with your preferred configuration. You can save this as a template for future use.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="report-name">Report Name</Label>
+              <Input
+                id="report-name"
+                placeholder="e.g., Monthly Revenue Report"
+                value={customReportName}
+                onChange={(e) => setCustomReportName(e.target.value)}
+                data-testid="input-report-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="report-description">Description (Optional)</Label>
+              <Textarea
+                id="report-description"
+                placeholder="Describe what this report tracks..."
+                value={customReportDescription}
+                onChange={(e) => setCustomReportDescription(e.target.value)}
+                data-testid="input-report-description"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Base Template</Label>
+              <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a template" />
+                </SelectTrigger>
+                <SelectContent>
+                  {reportTemplates.map((template) => (
+                    <SelectItem key={template.id} value={template.id}>
+                      {template.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => setShowCustomReportForm(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCreateCustomReport}
+              disabled={createReportMutation.isPending}
+              className="bg-teal-600 hover:bg-teal-700"
+              data-testid="button-save-custom-report"
+            >
+              {createReportMutation.isPending ? 'Creating...' : 'Create Report'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
