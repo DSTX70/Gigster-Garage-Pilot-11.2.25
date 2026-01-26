@@ -120,8 +120,8 @@ export default function ClientList() {
 
     try {
       setIsUploading(true);
-      const response = await apiRequest("POST", "/api/clients", formData) as Response;
-      const newClient = await response.json();
+      // apiRequest already returns parsed JSON, don't call .json() again
+      const newClient = await apiRequest("POST", "/api/clients", formData) as { id: string; name: string };
       
       // Upload files if any
       if (uploadedFiles.length > 0 && newClient.id) {

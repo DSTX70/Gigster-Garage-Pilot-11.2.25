@@ -171,11 +171,19 @@ export default function AdvancedReportingPage() {
         description: `Report generated successfully in ${data.executionTime}ms`,
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       setIsGenerating(false);
+      // Check if it's a plan upgrade required error
+      const errorMessage = error?.message || error?.error || '';
+      const isPlanError = errorMessage.includes('Plan upgrade required') || 
+                          errorMessage.includes('requires the') ||
+                          error?.requiredPlan;
+      
       toast({
-        title: "Generation Failed",
-        description: "Failed to generate report. Please try again.",
+        title: isPlanError ? "Pro Plan Required" : "Generation Failed",
+        description: isPlanError 
+          ? "Report generation is available on Pro and Enterprise plans. Upgrade your plan to access this feature."
+          : "Failed to generate report. Please try again.",
         variant: "destructive",
       });
     }
