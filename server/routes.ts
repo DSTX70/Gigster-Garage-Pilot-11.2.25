@@ -3299,6 +3299,18 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
     }
   });
 
+  // Client-specific proposal route - must be before /:id to avoid "client" being matched as id
+  app.get("/api/proposals/client/:clientId", requireAuth, async (req, res) => {
+    try {
+      const proposals = await storage.getProposals();
+      const clientProposals = proposals.filter(proposal => proposal.clientId === req.params.clientId);
+      res.json(clientProposals);
+    } catch (error) {
+      console.error("Error fetching client proposals:", error);
+      res.status(500).json({ message: "Failed to fetch proposals" });
+    }
+  });
+
   app.get("/api/proposals/:id", requireAuth, async (req, res) => {
     try {
       const proposal = await storage.getProposal(req.params.id);
@@ -4168,42 +4180,6 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
     }
   });
 
-  // Proposal Routes for Client Workflow
-  app.get("/api/proposals/client/:clientId", requireAuth, async (req, res) => {
-    try {
-      const proposals = await storage.getProposals();
-      const clientProposals = proposals.filter(proposal => proposal.clientId === req.params.clientId);
-      res.json(clientProposals);
-    } catch (error) {
-      console.error("Error fetching client proposals:", error);
-      res.status(500).json({ message: "Failed to fetch proposals" });
-    }
-  });
-
-  // Invoice Routes for Client Workflow
-  app.get("/api/invoices/client/:clientId", requireAuth, async (req, res) => {
-    try {
-      const invoices = await storage.getInvoices();
-      const clientInvoices = invoices.filter(invoice => invoice.clientId === req.params.clientId);
-      res.json(clientInvoices);
-    } catch (error) {
-      console.error("Error fetching client invoices:", error);
-      res.status(500).json({ message: "Failed to fetch invoices" });
-    }
-  });
-
-  // Payment Routes for Client Workflow  
-  app.get("/api/payments/client/:clientId", requireAuth, async (req, res) => {
-    try {
-      const payments = await storage.getPayments();
-      const clientPayments = payments.filter(payment => payment.clientId === req.params.clientId);
-      res.json(clientPayments);
-    } catch (error) {
-      console.error("Error fetching client payments:", error);
-      res.status(500).json({ message: "Failed to fetch payments" });
-    }
-  });
-
   // Client Document Management Routes
   
   // Get documents for a client
@@ -5010,6 +4986,18 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
     } catch (error) {
       console.error("Error fetching invoices:", error);
       res.status(500).json({ error: "Failed to fetch invoices" });
+    }
+  });
+
+  // Client-specific invoice route - must be before /:id to avoid "client" being matched as id
+  app.get("/api/invoices/client/:clientId", requireAuth, async (req, res) => {
+    try {
+      const invoices = await storage.getInvoices();
+      const clientInvoices = invoices.filter(invoice => invoice.clientId === req.params.clientId);
+      res.json(clientInvoices);
+    } catch (error) {
+      console.error("Error fetching client invoices:", error);
+      res.status(500).json({ message: "Failed to fetch invoices" });
     }
   });
 
@@ -6974,6 +6962,18 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
     } catch (error) {
       console.error("Error fetching payments:", error);
       res.status(500).json({ error: "Failed to fetch payments" });
+    }
+  });
+
+  // Client-specific payment route - must be before /:id to avoid "client" being matched as id
+  app.get("/api/payments/client/:clientId", requireAuth, async (req, res) => {
+    try {
+      const payments = await storage.getPayments();
+      const clientPayments = payments.filter(payment => payment.clientId === req.params.clientId);
+      res.json(clientPayments);
+    } catch (error) {
+      console.error("Error fetching client payments:", error);
+      res.status(500).json({ message: "Failed to fetch payments" });
     }
   });
 
