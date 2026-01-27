@@ -216,12 +216,12 @@ export function CalendarView({ tasks, onTaskClick, onSlotSelect }: CalendarViewP
         <CardContent className="pt-0">
           <div className="flex flex-wrap gap-4 text-xs">
             <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-blue-500 rounded"></div>
-              <span>Medium Priority</span>
-            </div>
-            <div className="flex items-center space-x-2">
               <div className="w-3 h-3 bg-yellow-500 rounded"></div>
               <span>High Priority</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-3 h-3 bg-blue-500 rounded"></div>
+              <span>Medium Priority</span>
             </div>
             <div className="flex items-center space-x-2">
               <div className="w-3 h-3 bg-gray-500 rounded"></div>

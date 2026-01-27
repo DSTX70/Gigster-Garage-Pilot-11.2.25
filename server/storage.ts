@@ -424,8 +424,8 @@ export class DatabaseStorage implements IStorage {
 
   async getProject(id: string, userId?: string): Promise<Project | undefined> {
     const [project] = await db.select().from(projects).where(eq(projects.id, id));
-    // For non-admin users, verify ownership
-    if (project && userId && project.createdById !== userId) {
+    // For non-admin users, verify ownership (allow access to legacy projects with null createdById)
+    if (project && userId && project.createdById && project.createdById !== userId) {
       return undefined;
     }
     return project;

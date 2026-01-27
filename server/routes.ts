@@ -2475,9 +2475,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Task not found" });
       }
 
-      // Check permissions
+      // Check permissions - allow admin, assigned user, or task creator
       const user = req.session.user!;
-      if (user.role !== 'admin' && task.assignedToId !== user.id) {
+      const isAdmin = user.role === 'admin';
+      const isAssigned = task.assignedToId === user.id;
+      const isCreator = task.createdById === user.id;
+      if (!isAdmin && !isAssigned && !isCreator) {
         return res.status(403).json({ message: "Access denied" });
       }
 
