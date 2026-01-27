@@ -7,7 +7,7 @@ import { getPlanFeatures } from "../../shared/plans.js";
 
 type UserSession = {
   id: string;
-  role: "admin" | "user" | null;
+  role: "admin" | "user" | "tester" | null;
   plan?: "free" | "pro" | "enterprise" | null;
   featuresOverride?: Record<string, boolean | number> | null;
 };
@@ -72,27 +72,40 @@ export class GigsterCoachService {
 
     const ctxSummary = req.coachContext ? coachContextToSummary(req.coachContext) : "";
 
+    const isDeepDive = req.coachingMode === "deep";
+    const isQuestionsPhase = isDeepDive && req.deepDivePhase !== "answer";
+    const hasAnswers = req.clarifyingAnswers && req.clarifyingAnswers.length > 0;
+
     const system = [
       "You are GigsterCoach — a lightweight business coach for gig workers.",
       "You must obey these rules:",
       "- Never claim you sent messages, invoices, or posts.",
       "- Provide drafts and suggestions only; user must take final action.",
-      "- Ask clarifying questions only if strictly necessary; otherwise make reasonable assumptions and label them.",
+      isDeepDive && isQuestionsPhase
+        ? "- DEEP DIVE MODE: First ask 2-3 focused clarifying questions to fully understand the user's situation before providing advice. Format as a numbered list."
+        : "- QUICK ANSWER MODE: Provide direct, actionable guidance. Only ask a clarifying question if absolutely critical context is missing.",
       "- Return concise, actionable guidance with checklists when appropriate.",
       `- Effective autonomy: ${effectiveAutonomy} (L0 assist-only, L1 still human-in-loop).`,
       ctxSummary ? `User/Business Context (ground truth): ${ctxSummary}` : "",
       ctxSummary ? "When giving suggestions, explicitly reference the user's stage/industry when relevant (e.g., \"Since you're in Early traction…\")." : "",
+      hasAnswers ? "- The user has answered your clarifying questions. Now provide comprehensive, tailored advice based on their answers." : "",
     ]
       .filter(Boolean)
       .join("\n");
 
+    const clarifyingAnswersText = hasAnswers
+      ? `\n\nUser's answers to clarifying questions:\n${req.clarifyingAnswers!.map((a, i) => `Q${i + 1}: ${a.question}\nA${i + 1}: ${a.answer}`).join("\n\n")}`
+      : "";
+
     const userMsg = [
       `Intent: ${req.intent}`,
+      `Coaching Mode: ${isDeepDive ? "Deep Dive" : "Quick Answer"}`,
       req.draftTarget ? `DraftTarget: ${req.draftTarget}` : "",
       req.contextRef ? `ContextRef: ${JSON.stringify(req.contextRef)}` : "",
       req.structuredFields ? `StructuredFields: ${JSON.stringify(req.structuredFields)}` : "",
       req.artifactText ? `ArtifactText:\n${req.artifactText}` : "",
       `Question:\n${req.question}`,
+      clarifyingAnswersText,
     ]
       .filter(Boolean)
       .join("\n\n");
@@ -179,12 +192,16 @@ export class GigsterCoachService {
       );
     }
 
+    // For Deep Dive questions phase, mark as awaiting clarification
+    const awaitingClarification = isDeepDive && isQuestionsPhase && !hasAnswers;
+
     const resp = CoachResponse.parse({
       answer: content,
       suggestions,
       checklist,
       model,
       tokensUsed,
+      awaitingClarification: awaitingClarification || undefined,
     });
 
     return resp;

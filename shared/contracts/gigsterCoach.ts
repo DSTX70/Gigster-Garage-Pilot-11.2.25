@@ -50,6 +50,9 @@ export const CoachChecklistItem = z.object({
 
 export type CoachChecklistItem = z.infer<typeof CoachChecklistItem>;
 
+export const CoachingMode = z.enum(["quick", "deep"]);
+export type CoachingMode = z.infer<typeof CoachingMode>;
+
 export const CoachRequest = z.object({
   intent: CoachIntent,
   question: z.string().min(1).max(4000),
@@ -59,9 +62,24 @@ export const CoachRequest = z.object({
   contextRef: CoachContextRef.optional(),
   requestedAutonomy: z.enum(["L0", "L1"]).default("L0"),
   coachContext: z.lazy(() => GigsterCoachContextSchema).optional(),
+  coachingMode: CoachingMode.default("quick"),
+  // For Deep Dive mode: tracks if we're in the clarifying questions phase
+  deepDivePhase: z.enum(["questions", "answer"]).optional(),
+  // User's answers to clarifying questions (for the answer phase)
+  clarifyingAnswers: z.array(z.object({
+    question: z.string(),
+    answer: z.string(),
+  })).optional(),
 });
 
 export type CoachRequest = z.infer<typeof CoachRequest>;
+
+export const ClarifyingQuestion = z.object({
+  id: z.string(),
+  question: z.string(),
+  hint: z.string().optional(),
+});
+export type ClarifyingQuestion = z.infer<typeof ClarifyingQuestion>;
 
 export const CoachResponse = z.object({
   answer: z.string(),
@@ -69,6 +87,10 @@ export const CoachResponse = z.object({
   checklist: z.array(CoachChecklistItem).default([]),
   model: z.string().optional(),
   tokensUsed: z.number().int().nonnegative().optional(),
+  // For Deep Dive mode: clarifying questions to ask before giving full answer
+  clarifyingQuestions: z.array(ClarifyingQuestion).optional(),
+  // Indicates if this is a Deep Dive response awaiting user answers
+  awaitingClarification: z.boolean().optional(),
 });
 
 export type CoachResponse = z.infer<typeof CoachResponse>;

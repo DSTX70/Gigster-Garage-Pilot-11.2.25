@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import type { GigsterCoachContext } from "../../../shared/contracts/gigsterCoach";
+import type { GigsterCoachContext, CoachingMode } from "../../../shared/contracts/gigsterCoach";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, MessageSquare, FileText, CheckCircle2, Lightbulb, History, Send, User, Volume2, VolumeX, Pause, Play, Paperclip, X } from "lucide-react";
+import { Loader2, MessageSquare, FileText, CheckCircle2, Lightbulb, History, Send, User, Volume2, VolumeX, Pause, Play, Paperclip, X, Zap, Search, ArrowRight } from "lucide-react";
 import { useTextToSpeech } from "@/hooks/useTextToSpeech";
 import { getCoachContext } from "@/lib/getCoachContext";
 import { Link } from "wouter";
@@ -40,6 +40,11 @@ function PersonalizationBadge({ ctx }: { ctx: GigsterCoachContext | null }) {
   );
 }
 
+type ClarifyingAnswer = {
+  question: string;
+  answer: string;
+};
+
 type CoachResponse = {
   answer: string;
   suggestions?: any[];
@@ -47,6 +52,8 @@ type CoachResponse = {
   interactionId?: string;
   model?: string;
   tokensUsed?: number;
+  awaitingClarification?: boolean;
+  clarifyingQuestions?: { id: string; question: string; hint?: string }[];
 };
 
 type HistoryItem = {
@@ -68,6 +75,23 @@ export default function GigsterCoachPage() {
   const [profileCtx, setProfileCtx] = useState<GigsterCoachContext | null>(null);
   const [attachedFile, setAttachedFile] = useState<{ name: string; content: string; type: string } | null>(null);
   const { speak, stop, pause, resume, isSpeaking, isPaused, isSupported } = useTextToSpeech();
+  
+  // Coaching mode state - persisted in localStorage
+  const [coachingMode, setCoachingMode] = useState<CoachingMode>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('gigsterCoach_mode');
+      if (stored === 'deep' || stored === 'quick') return stored;
+    }
+    return "quick";
+  });
+  const [clarifyingAnswers, setClarifyingAnswers] = useState<ClarifyingAnswer[]>([]);
+  const [pendingQuestions, setPendingQuestions] = useState<string[]>([]);
+  const [originalQuestion, setOriginalQuestion] = useState("");
+
+  // Persist coaching mode to localStorage
+  useEffect(() => {
+    localStorage.setItem('gigsterCoach_mode', coachingMode);
+  }, [coachingMode]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -107,7 +131,13 @@ export default function GigsterCoachPage() {
   });
 
   const askMutation = useMutation({
-    mutationFn: async (data: { question: string; attachment?: { name: string; content: string; type: string } }) => {
+    mutationFn: async (data: { 
+      question: string; 
+      attachment?: { name: string; content: string; type: string };
+      coachingMode?: CoachingMode;
+      deepDivePhase?: "questions" | "answer";
+      clarifyingAnswers?: ClarifyingAnswer[];
+    }) => {
       const coachContext = await getCoachContext();
       const res = await apiRequest<CoachResponse>("POST", "/api/gigster-coach/ask", { ...data, coachContext });
       return res;
@@ -115,8 +145,27 @@ export default function GigsterCoachPage() {
     onSuccess: (data) => {
       setResponse(data);
       setAttachedFile(null);
+      
+      // If in Deep Dive mode and awaiting clarification, parse questions from the answer
+      if (data.awaitingClarification && coachingMode === "deep") {
+        const questionMatches = data.answer.match(/\d+\.\s*([^\n?]+\?)/g) || [];
+        const extractedQuestions = questionMatches.map(q => q.replace(/^\d+\.\s*/, '').trim());
+        if (extractedQuestions.length > 0) {
+          setPendingQuestions(extractedQuestions);
+          setClarifyingAnswers(extractedQuestions.map(q => ({ question: q, answer: '' })));
+        }
+      } else {
+        setPendingQuestions([]);
+        setClarifyingAnswers([]);
+      }
+      
       queryClient.invalidateQueries({ queryKey: ["/api/gigster-coach/history"] });
-      toast({ title: "Response received", description: "GigsterCoach has answered your question." });
+      toast({ 
+        title: data.awaitingClarification ? "Let me understand better" : "Response received", 
+        description: data.awaitingClarification 
+          ? "Please answer the questions below for tailored advice."
+          : "GigsterCoach has answered your question." 
+      });
     },
     onError: (err: any) => {
       toast({ title: "Error", description: err.message || "Failed to get response", variant: "destructive" });
@@ -160,7 +209,13 @@ export default function GigsterCoachPage() {
   const handleSubmit = () => {
     if (!question.trim()) return;
     
-    const payload = { question, attachment: attachedFile || undefined };
+    setOriginalQuestion(question);
+    const payload = { 
+      question, 
+      attachment: attachedFile || undefined,
+      coachingMode,
+      deepDivePhase: coachingMode === "deep" ? "questions" as const : undefined,
+    };
     
     if (activeTab === "ask") {
       askMutation.mutate(payload);
@@ -169,6 +224,44 @@ export default function GigsterCoachPage() {
     } else if (activeTab === "review") {
       reviewMutation.mutate(payload);
     }
+  };
+
+  const handleGoDeeper = () => {
+    if (!response || !originalQuestion) {
+      // Use current question if no original
+      setOriginalQuestion(question);
+    }
+    setCoachingMode("deep");
+    const questionToUse = originalQuestion || question;
+    if (questionToUse.trim()) {
+      askMutation.mutate({
+        question: questionToUse,
+        coachingMode: "deep",
+        deepDivePhase: "questions",
+      });
+    }
+  };
+
+  const handleSubmitClarifyingAnswers = () => {
+    const filledAnswers = clarifyingAnswers.filter(a => a.answer.trim());
+    if (filledAnswers.length === 0) {
+      toast({ title: "Please answer at least one question", variant: "destructive" });
+      return;
+    }
+    
+    askMutation.mutate({
+      question: originalQuestion || question,
+      coachingMode: "deep",
+      deepDivePhase: "answer",
+      clarifyingAnswers: filledAnswers,
+    });
+  };
+
+  const handleSwitchToQuick = () => {
+    setCoachingMode("quick");
+    setPendingQuestions([]);
+    setClarifyingAnswers([]);
+    toast({ title: "Switched to Quick Answer mode" });
   };
 
   const isLoading = askMutation.isPending || draftMutation.isPending || reviewMutation.isPending;
@@ -196,8 +289,30 @@ export default function GigsterCoachPage() {
         <p className="text-muted-foreground mt-2">
           Your AI business coach - get help with proposals, invoices, contracts, and general business questions.
         </p>
-        <div className="mt-3">
+        <div className="mt-3 flex items-center gap-3 flex-wrap">
           <PersonalizationBadge ctx={profileCtx} />
+          
+          {/* Coaching Mode Indicator */}
+          <div className="flex items-center gap-2 text-xs bg-muted/50 rounded-full px-3 py-1.5" data-testid="badge-coaching-mode">
+            {coachingMode === "quick" ? (
+              <>
+                <Zap className="h-3 w-3 text-amber-500" />
+                <span className="text-muted-foreground">Quick Answer</span>
+              </>
+            ) : (
+              <>
+                <Search className="h-3 w-3 text-blue-500" />
+                <span className="text-muted-foreground">Deep Dive</span>
+                <button 
+                  onClick={handleSwitchToQuick}
+                  className="ml-1 text-primary hover:underline"
+                  data-testid="button-switch-quick"
+                >
+                  Switch to Quick
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -336,6 +451,73 @@ export default function GigsterCoachPage() {
                     {response.answer}
                   </pre>
                 </div>
+
+                {/* Clarifying Questions UI for Deep Dive */}
+                {response.awaitingClarification && pendingQuestions.length > 0 && (
+                  <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200" data-testid="clarifying-questions-section">
+                    <h4 className="font-semibold text-blue-800 mb-4 flex items-center gap-2">
+                      <Search className="h-5 w-5" />
+                      Help me give you better advice
+                    </h4>
+                    <div className="space-y-4">
+                      {clarifyingAnswers.map((item, idx) => (
+                        <div key={idx} className="space-y-1">
+                          <Label className="text-sm text-blue-700 font-medium">
+                            {idx + 1}. {item.question}
+                          </Label>
+                          <Textarea
+                            value={item.answer}
+                            onChange={(e) => {
+                              const updated = [...clarifyingAnswers];
+                              updated[idx] = { ...updated[idx], answer: e.target.value };
+                              setClarifyingAnswers(updated);
+                            }}
+                            placeholder="Your answer..."
+                            className="min-h-[60px] bg-white"
+                            data-testid={`input-clarifying-${idx}`}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <Button
+                      onClick={handleSubmitClarifyingAnswers}
+                      disabled={isLoading || clarifyingAnswers.every(a => !a.answer.trim())}
+                      className="mt-4 w-full bg-blue-600 hover:bg-blue-700"
+                      data-testid="button-submit-clarifying"
+                    >
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Getting tailored advice...
+                        </>
+                      ) : (
+                        <>
+                          <ArrowRight className="mr-2 h-4 w-4" />
+                          Get Tailored Advice
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+
+                {/* Go Deeper button - shows when in Quick mode and response exists */}
+                {!response.awaitingClarification && coachingMode === "quick" && (
+                  <div className="mt-4 flex items-center gap-3 p-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-200">
+                    <Search className="h-5 w-5 text-indigo-600 flex-shrink-0" />
+                    <span className="text-sm text-indigo-700">Want more tailored advice?</span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleGoDeeper}
+                      disabled={isLoading}
+                      className="flex items-center gap-2 border-indigo-300 text-indigo-700 hover:bg-indigo-100"
+                      data-testid="button-go-deeper"
+                    >
+                      <Search className="h-4 w-4" />
+                      Go Deeper
+                    </Button>
+                  </div>
+                )}
 
                 <div className="mt-4 flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
                   <Volume2 className="h-5 w-5 text-blue-600 flex-shrink-0" />
