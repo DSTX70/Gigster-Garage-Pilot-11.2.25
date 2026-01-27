@@ -17,8 +17,9 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Folder, AlertTriangle, Clock } from "lucide-react";
-import type { Project, Task, User } from "@shared/schema";
+import { Folder, AlertTriangle, Clock, Calendar, FileText, CheckCircle2 } from "lucide-react";
+import type { Project, Task, User, Proposal } from "@shared/schema";
+import { format, isToday, isTomorrow } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
 import { DemoUpgradePrompt } from "@/components/DemoUpgradePrompt";
 import { NewMenuButton } from "@/components/dashboard/NewMenuButton";
@@ -42,6 +43,32 @@ export default function Home() {
   const { data: tasks = [] } = useQuery<Task[]>({
     queryKey: ["/api/tasks"],
   });
+
+  const { data: proposals = [] } = useQuery<Proposal[]>({
+    queryKey: ["/api/proposals"],
+  });
+
+  // Calculate today's focus items
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date();
+  todayEnd.setHours(23, 59, 59, 999);
+
+  const tasksDueToday = tasks.filter(task => {
+    if (task.completed) return false;
+    if (!task.dueDate) return false;
+    const dueDate = new Date(task.dueDate);
+    return isToday(dueDate);
+  });
+
+  const tasksDueTomorrow = tasks.filter(task => {
+    if (task.completed) return false;
+    if (!task.dueDate) return false;
+    const dueDate = new Date(task.dueDate);
+    return isTomorrow(dueDate);
+  });
+
+  const pendingProposals = proposals.filter(p => p.status === 'draft' || p.status === 'pending');
 
   const updateTaskMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Task> }) => {
@@ -115,6 +142,103 @@ export default function Home() {
           <div className="mb-4 sm:mb-6">
             <FirstSuccessChecklist onDismiss={() => setShowOnboarding(false)} />
           </div>
+        )}
+
+        {/* Today's Focus Panel */}
+        {(tasksDueToday.length > 0 || pendingProposals.length > 0 || tasksDueTomorrow.length > 0) && (
+          <Card className="mb-4 sm:mb-6 border-l-4 border-l-[#2EC5C2]" data-testid="card-today-focus">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-[#2EC5C2]" />
+                Today's Focus
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Tasks Due Today */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Due Today ({tasksDueToday.length})
+                  </div>
+                  {tasksDueToday.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {tasksDueToday.slice(0, 3).map(task => (
+                        <Link key={task.id} href="/tasks">
+                          <div className="p-2 bg-amber-50 rounded border border-amber-200 hover:bg-amber-100 cursor-pointer transition-colors">
+                            <div className="text-sm font-medium text-amber-900 truncate">{task.title}</div>
+                            <div className="text-xs text-amber-700">
+                              {task.priority && <Badge variant="outline" className="text-xs mr-1">{task.priority}</Badge>}
+                            </div>
+                          </div>
+                        </Link>
+                      ))}
+                      {tasksDueToday.length > 3 && (
+                        <Link href="/tasks?filter=due-today">
+                          <span className="text-xs text-blue-600 hover:underline">+{tasksDueToday.length - 3} more</span>
+                        </Link>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-500">No tasks due today</p>
+                  )}
+                </div>
+
+                {/* Upcoming Tomorrow */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                    <Clock className="h-4 w-4" />
+                    Due Tomorrow ({tasksDueTomorrow.length})
+                  </div>
+                  {tasksDueTomorrow.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {tasksDueTomorrow.slice(0, 3).map(task => (
+                        <Link key={task.id} href="/tasks">
+                          <div className="p-2 bg-blue-50 rounded border border-blue-200 hover:bg-blue-100 cursor-pointer transition-colors">
+                            <div className="text-sm font-medium text-blue-900 truncate">{task.title}</div>
+                          </div>
+                        </Link>
+                      ))}
+                      {tasksDueTomorrow.length > 3 && (
+                        <Link href="/tasks">
+                          <span className="text-xs text-blue-600 hover:underline">+{tasksDueTomorrow.length - 3} more</span>
+                        </Link>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-500">Nothing due tomorrow</p>
+                  )}
+                </div>
+
+                {/* Pending Proposals */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                    <FileText className="h-4 w-4" />
+                    Proposals ({pendingProposals.length})
+                  </div>
+                  {pendingProposals.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {pendingProposals.slice(0, 3).map(proposal => (
+                        <Link key={proposal.id} href="/proposals">
+                          <div className="p-2 bg-purple-50 rounded border border-purple-200 hover:bg-purple-100 cursor-pointer transition-colors">
+                            <div className="text-sm font-medium text-purple-900 truncate">{proposal.title}</div>
+                            <div className="text-xs text-purple-700 capitalize">{proposal.status}</div>
+                          </div>
+                        </Link>
+                      ))}
+                      {pendingProposals.length > 3 && (
+                        <Link href="/proposals">
+                          <span className="text-xs text-purple-600 hover:underline">+{pendingProposals.length - 3} more</span>
+                        </Link>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-500">No pending proposals</p>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* 2. Today Strip - 3 compact KPI chips only */}

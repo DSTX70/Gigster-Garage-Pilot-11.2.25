@@ -76,10 +76,7 @@ export function BulkActions<T extends { id: string }>({
     mutationFn: async (ids: string[]) => {
       setBatchProgress({ total: ids.length, completed: 0, errors: 0, status: 'running' });
       
-      return apiRequest(`/api/bulk/${entityType}/delete`, {
-        method: 'POST',
-        body: JSON.stringify({ ids })
-      });
+      return apiRequest('POST', `/api/bulk/${entityType}/delete`, { ids });
     },
     onSuccess: (data) => {
       setBatchProgress({ ...data, status: 'completed' });
@@ -106,10 +103,7 @@ export function BulkActions<T extends { id: string }>({
     mutationFn: async ({ ids, updates }: { ids: string[], updates: BulkEditData }) => {
       setBatchProgress({ total: ids.length, completed: 0, errors: 0, status: 'running' });
       
-      return apiRequest(`/api/bulk/${entityType}/edit`, {
-        method: 'POST',
-        body: JSON.stringify({ ids, updates })
-      });
+      return apiRequest('POST', `/api/bulk/${entityType}/edit`, { ids, updates });
     },
     onSuccess: (data) => {
       setBatchProgress({ ...data, status: 'completed' });
