@@ -7515,25 +7515,48 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
   app.post("/api/bulk/tasks/edit", requireAuth, async (req, res) => {
     try {
       const { ids, updates } = req.body;
+      const user = req.session.user!;
+      
+      console.log(`📦 Bulk edit request: ${ids?.length || 0} tasks, updates:`, updates);
+      
       if (!Array.isArray(ids) || ids.length === 0) {
         return res.status(400).json({ message: "IDs array required" });
       }
 
+      if (!updates || Object.keys(updates).length === 0) {
+        return res.status(400).json({ message: "Updates object required" });
+      }
+
       let completed = 0;
       let errors = 0;
+      let skipped = 0;
 
       for (const id of ids) {
         try {
+          // Check ownership for non-admin users
+          const hasAccess = await checkTaskOwnership(id, user.id, user.role);
+          if (!hasAccess) {
+            console.log(`⚠️ Bulk edit: User ${user.id} doesn't have access to task ${id}`);
+            skipped++;
+            continue;
+          }
+          
           const updated = await storage.updateTask(id, updates);
-          if (updated) completed++;
-          else errors++;
+          if (updated) {
+            completed++;
+            console.log(`✅ Bulk edit: Task ${id} updated successfully`);
+          } else {
+            errors++;
+            console.log(`❌ Bulk edit: Task ${id} not found or update failed`);
+          }
         } catch (error) {
           console.error(`Error updating task ${id}:`, error);
           errors++;
         }
       }
 
-      res.json({ total: ids.length, completed, errors });
+      console.log(`📦 Bulk edit complete: ${completed} updated, ${errors} errors, ${skipped} skipped`);
+      res.json({ total: ids.length, completed, errors, skipped });
     } catch (error) {
       console.error("Error in bulk edit tasks:", error);
       res.status(500).json({ message: "Failed to update tasks" });

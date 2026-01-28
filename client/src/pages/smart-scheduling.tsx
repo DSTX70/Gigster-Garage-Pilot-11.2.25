@@ -138,14 +138,6 @@ export default function SmartSchedulingPage() {
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  const { data: projects = [] } = useQuery<Array<{ id: string; name: string }>>({
-    queryKey: ['/api/projects']
-  });
-
-  const { data: tasks = [] } = useQuery<Array<{ id: string; title: string; projectId?: string; [key: string]: any }>>({
-    queryKey: ['/api/tasks']
-  });
-
   interface ScheduleData {
     scheduledTasks: ScheduledTask[];
     resourceAllocations: ResourceAllocation[];
@@ -153,6 +145,16 @@ export default function SmartSchedulingPage() {
     totalEstimatedHours: number;
     confidence: number;
   }
+
+  const [generatedScheduleData, setGeneratedScheduleData] = useState<ScheduleData | null>(null);
+
+  const { data: projects = [] } = useQuery<Array<{ id: string; name: string }>>({
+    queryKey: ['/api/projects']
+  });
+
+  const { data: tasks = [] } = useQuery<Array<{ id: string; title: string; projectId?: string; [key: string]: any }>>({
+    queryKey: ['/api/tasks']
+  });
 
   const { data: scheduleData, refetch: refetchSchedule } = useQuery<ScheduleData>({
     queryKey: ['/api/smart-scheduling/schedule', selectedProject],
@@ -213,7 +215,7 @@ export default function SmartSchedulingPage() {
     onSuccess: (data) => {
       setIsGenerating(false);
       setShowScheduleDialog(false);
-      refetchSchedule();
+      setGeneratedScheduleData(data);
       queryClient.invalidateQueries({ queryKey: ['/api/smart-scheduling'] });
       toast({
         title: "AI Schedule Generated",
@@ -275,6 +277,9 @@ export default function SmartSchedulingPage() {
       default: return <Activity className="h-4 w-4 text-gray-600" />;
     }
   };
+
+  // Use generated schedule data if available, otherwise fall back to fetched data
+  const activeScheduleData = generatedScheduleData || scheduleData;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
@@ -348,7 +353,7 @@ export default function SmartSchedulingPage() {
             </Card>
 
             {/* Schedule Results */}
-            {scheduleData ? (
+            {activeScheduleData ? (
               <div className="grid gap-6">
                 {/* Schedule Overview */}
                 <Card>
@@ -360,21 +365,21 @@ export default function SmartSchedulingPage() {
                           AI-Generated Schedule
                         </CardTitle>
                         <CardDescription>
-                          Completion by {format(parseISO(scheduleData.estimatedCompletionDate), 'MMM d, yyyy')}
+                          Completion by {format(parseISO(activeScheduleData.estimatedCompletionDate), 'MMM d, yyyy')}
                         </CardDescription>
                       </div>
                       <div className="flex items-center space-x-4">
                         <div className="text-center">
-                          <div className="text-2xl font-bold text-purple-600">{scheduleData.scheduledTasks.length}</div>
+                          <div className="text-2xl font-bold text-purple-600">{activeScheduleData.scheduledTasks.length}</div>
                           <div className="text-xs text-gray-500">Tasks Scheduled</div>
                         </div>
                         <div className="text-center">
-                          <div className="text-2xl font-bold text-blue-600">{scheduleData.totalEstimatedHours}h</div>
+                          <div className="text-2xl font-bold text-blue-600">{activeScheduleData.totalEstimatedHours}h</div>
                           <div className="text-xs text-gray-500">Total Hours</div>
                         </div>
                         <div className="text-center">
-                          <div className={`text-2xl font-bold ${getConfidenceColor(scheduleData.confidence)}`}>
-                            {Math.round(scheduleData.confidence)}%
+                          <div className={`text-2xl font-bold ${getConfidenceColor(activeScheduleData.confidence)}`}>
+                            {Math.round(activeScheduleData.confidence)}%
                           </div>
                           <div className="text-xs text-gray-500">AI Confidence</div>
                         </div>
@@ -383,7 +388,7 @@ export default function SmartSchedulingPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {scheduleData.scheduledTasks.map((task: ScheduledTask) => (
+                      {activeScheduleData.scheduledTasks.map((task: ScheduledTask) => (
                         <div key={task.taskId} className="border rounded-lg p-4">
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
@@ -455,7 +460,7 @@ export default function SmartSchedulingPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="grid gap-4">
-                      {scheduleData.resourceAllocations.map((allocation: ResourceAllocation) => (
+                      {activeScheduleData.resourceAllocations.map((allocation: ResourceAllocation) => (
                         <div key={allocation.userId} className="border rounded-lg p-4">
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center space-x-3">
