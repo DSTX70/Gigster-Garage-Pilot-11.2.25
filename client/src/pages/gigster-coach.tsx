@@ -447,9 +447,13 @@ export default function GigsterCoachPage() {
               </CardHeader>
               <CardContent>
                 <div className="prose prose-sm max-w-none" data-testid="text-response">
-                  <pre className="whitespace-pre-wrap font-sans text-sm bg-muted p-4 rounded-lg">
+                  <div className="flex items-center gap-2 mb-3 text-sm text-muted-foreground">
+                    <FileText className="h-4 w-4" />
+                    <span>Written Response (scroll to read)</span>
+                  </div>
+                  <div className="whitespace-pre-wrap font-sans text-sm bg-muted p-4 rounded-lg max-h-[400px] overflow-y-auto leading-relaxed">
                     {response.answer}
-                  </pre>
+                  </div>
                 </div>
 
                 {/* Clarifying Questions UI for Deep Dive */}
@@ -521,7 +525,7 @@ export default function GigsterCoachPage() {
 
                 <div className="mt-4 flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
                   <Volume2 className="h-5 w-5 text-blue-600 flex-shrink-0" />
-                  <span className="text-sm text-blue-700 font-medium">Text-to-Speech:</span>
+                  <span className="text-sm text-blue-700 font-medium">Optional: Listen to response</span>
                   {isSpeaking ? (
                     <>
                       {isPaused ? (

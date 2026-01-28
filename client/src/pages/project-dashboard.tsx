@@ -25,12 +25,13 @@ export default function ProjectDashboard() {
   const [showTaskDrawer, setShowTaskDrawer] = useState(false);
   const [taskDrawerStatus, setTaskDrawerStatus] = useState<string>("");
 
-  const { data: project } = useQuery<Project>({
+  const { data: project, isLoading: isLoadingProject, isError } = useQuery<Project>({
     queryKey: ["/api/projects", projectId],
   });
 
   const { data: tasks = [] } = useQuery<Task[]>({
     queryKey: ["/api/tasks", "project", projectId],
+    enabled: !!project,
   });
 
   const handleTaskClick = (task: Task) => {
@@ -56,13 +57,25 @@ export default function ProjectDashboard() {
     setTaskDrawerStatus("");
   };
 
-  if (!project) {
+  if (isLoadingProject) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Loading project...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!project || isError) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-semibold text-gray-900">Project not found</h2>
-          <Link href="/">
-            <Button className="mt-4">Back to Home</Button>
+          <p className="text-muted-foreground mt-2">This project may have been deleted or you don't have access to it.</p>
+          <Link href="/projects">
+            <Button className="mt-4" data-testid="button-back-to-projects">Back to Projects</Button>
           </Link>
         </div>
       </div>

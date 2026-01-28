@@ -271,7 +271,7 @@ export default function Templates() {
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <Calendar className="h-3 w-3" />
-                            {formatDate(template.createdAt)}
+                            {template.createdAt ? formatDate(template.createdAt) : 'Unknown'}
                           </div>
                           <div className="flex items-center gap-2">
                             {template.isSystem && (

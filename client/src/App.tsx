@@ -36,6 +36,8 @@ import CreateContract from "@/pages/create-contract";
 import CreatePresentation from "@/pages/create-presentation";
 import InstantProposal from "@/pages/instant-proposal";
 import TemplateEditor from "@/pages/template-editor";
+import Templates from "@/pages/templates";
+import Contracts from "@/pages/contracts";
 import ClientList from "@/pages/client-list";
 import ClientDetails from "@/pages/client-details";
 import { MessagesPage } from "@/pages/messages";
@@ -181,7 +183,10 @@ function Router() {
       <Route path="/create-contract" component={CreateContract} />
       <Route path="/create-presentation" component={CreatePresentation} />
       <Route path="/instant-proposal" component={InstantProposal} />
+      <Route path="/templates" component={Templates} />
+      <Route path="/templates/:id" component={TemplateEditor} />
       <Route path="/template-editor" component={TemplateEditor} />
+      <Route path="/contracts" component={Contracts} />
       <Route path="/clients" component={ClientList} />
       <Route path="/client/:clientId" component={ClientDetails} />
       <Route path="/filing-cabinet" component={FilingCabinet} />
