@@ -82,6 +82,9 @@ export function FirstSuccessChecklist({ collapsed = false, onDismiss }: FirstSuc
   const { toast } = useToast();
   const [isExpanded, setIsExpanded] = useState(!collapsed);
   const [localCompletions, setLocalCompletions] = useState<Record<string, boolean>>({});
+  const [isDismissed, setIsDismissed] = useState(() => {
+    return localStorage.getItem("first-success-dismissed") === "true";
+  });
 
   const { data: user } = useQuery<{
     id: string;
@@ -170,10 +173,12 @@ export function FirstSuccessChecklist({ collapsed = false, onDismiss }: FirstSuc
     if (allComplete) {
       completeOnboardingMutation.mutate();
     }
+    localStorage.setItem("first-success-dismissed", "true");
+    setIsDismissed(true);
     onDismiss?.();
   };
 
-  if (user?.hasCompletedOnboarding && allComplete) {
+  if (isDismissed || (user?.hasCompletedOnboarding && allComplete)) {
     return null;
   }
 

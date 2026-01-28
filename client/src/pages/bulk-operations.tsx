@@ -174,15 +174,15 @@ export default function BulkOperations() {
   const stats = {
     tasks: {
       total: tasks.length,
-      completed: tasks.filter(t => t.status === 'done').length,
-      pending: tasks.filter(t => t.status !== 'done').length,
-      overdue: tasks.filter(t => t.dueDate && new Date(t.dueDate) < new Date() && t.status !== 'done').length
+      completed: tasks.filter(t => t.completed === true).length,
+      pending: tasks.filter(t => t.completed !== true).length,
+      overdue: tasks.filter(t => t.dueDate && new Date(t.dueDate) < new Date() && t.completed !== true).length
     },
     projects: {
       total: projects.length,
       active: projects.filter(p => p.status === 'active').length,
       completed: projects.filter(p => p.status === 'completed').length,
-      onHold: projects.filter(p => p.status === 'on_hold').length
+      onHold: projects.filter(p => (p.status as string) === 'on_hold' || (p.status as string) === 'on-hold').length
     },
     clients: {
       total: clients.length,

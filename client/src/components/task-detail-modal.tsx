@@ -52,8 +52,10 @@ export function TaskDetailModal({ task, isOpen, onOpenChange }: TaskDetailModalP
     mutationFn: async ({ taskId, date, comment }: { taskId: string; date: string; comment: string }) => {
       return await apiRequest("POST", `/api/tasks/${taskId}/progress`, { date, comment });
     },
-    onSuccess: () => {
+    onSuccess: (_updatedTask, { taskId }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks", taskId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks", "project"] });
       setNewProgressComment("");
       toast({
         title: t('progressUpdated'),

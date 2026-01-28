@@ -138,15 +138,23 @@ export default function SmartSchedulingPage() {
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  const { data: projects = [] } = useQuery({
+  const { data: projects = [] } = useQuery<Array<{ id: string; name: string }>>({
     queryKey: ['/api/projects']
   });
 
-  const { data: tasks = [] } = useQuery({
+  const { data: tasks = [] } = useQuery<Array<{ id: string; title: string; projectId?: string; [key: string]: any }>>({
     queryKey: ['/api/tasks']
   });
 
-  const { data: scheduleData, refetch: refetchSchedule } = useQuery({
+  interface ScheduleData {
+    scheduledTasks: ScheduledTask[];
+    resourceAllocations: ResourceAllocation[];
+    estimatedCompletionDate: string;
+    totalEstimatedHours: number;
+    confidence: number;
+  }
+
+  const { data: scheduleData, refetch: refetchSchedule } = useQuery<ScheduleData>({
     queryKey: ['/api/smart-scheduling/schedule', selectedProject],
     enabled: false
   });
@@ -159,7 +167,24 @@ export default function SmartSchedulingPage() {
     queryKey: ['/api/smart-scheduling/recommendations']
   });
 
-  const { data: statistics } = useQuery({
+  interface SchedulingStatistics {
+    totalSchedules: number;
+    activeRecommendations: number;
+    implementedRecommendations: number;
+    optimizationImpact: {
+      totalTimeSaved: number;
+    };
+    workloadInsights: {
+      overloadedUsers: number;
+      underutilizedUsers: number;
+      balancedUsers: number;
+      averageUtilization: number;
+      overallocatedUsers: number;
+      highBurnoutRisk: number;
+    };
+  }
+
+  const { data: statistics } = useQuery<SchedulingStatistics>({
     queryKey: ['/api/smart-scheduling/statistics']
   });
 
@@ -168,7 +193,7 @@ export default function SmartSchedulingPage() {
       setIsGenerating(true);
       const filteredTasks = selectedProject === 'all' ? tasks : tasks.filter(t => t.projectId === selectedProject);
       
-      const response = await apiRequest('POST', '/api/smart-scheduling/generate', {
+      const data = await apiRequest<ScheduleData>('POST', '/api/smart-scheduling/generate', {
         tasks: filteredTasks,
         context: {
           projectId: selectedProject !== 'all' ? selectedProject : undefined,
@@ -183,7 +208,7 @@ export default function SmartSchedulingPage() {
           }
         }
       });
-      return response.json();
+      return data;
     },
     onSuccess: (data) => {
       setIsGenerating(false);
@@ -207,8 +232,8 @@ export default function SmartSchedulingPage() {
 
   const applyRecommendationMutation = useMutation({
     mutationFn: async (recommendationId: string) => {
-      const response = await apiRequest('POST', `/api/smart-scheduling/recommendations/${recommendationId}/apply`, {});
-      return response.json();
+      const data = await apiRequest('POST', `/api/smart-scheduling/recommendations/${recommendationId}/apply`, {});
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/smart-scheduling'] });
