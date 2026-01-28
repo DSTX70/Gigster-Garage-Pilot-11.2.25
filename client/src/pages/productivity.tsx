@@ -46,7 +46,6 @@ export default function ProductivityPage() {
   const [selectedForInvoice, setSelectedForInvoice] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<"all" | "pending" | "approved" | "rejected">("all");
   const [editingLog, setEditingLog] = useState<TimeLog | null>(null);
-  const [editNotes, setEditNotes] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -76,8 +75,8 @@ export default function ProductivityPage() {
     refetchInterval: 1000 * 60, // Refetch every minute
   });
 
-  // Calculate running total of hours
-  const totalHours = timeLogs.reduce((total, log) => {
+  // Calculate running total in seconds (duration is stored as seconds in string format)
+  const totalSeconds = timeLogs.reduce((total, log) => {
     if (log.duration) {
       return total + parseInt(log.duration);
     }
@@ -161,14 +160,13 @@ export default function ProductivityPage() {
 
   // Update time log mutation
   const updateTimeLogMutation = useMutation({
-    mutationFn: async ({ timeLogId, description, notes }: { timeLogId: string; description: string; notes: string }) => {
-      return apiRequest("PUT", `/api/timelogs/${timeLogId}`, { description, notes });
+    mutationFn: async ({ timeLogId, description }: { timeLogId: string; description: string }) => {
+      return apiRequest("PUT", `/api/timelogs/${timeLogId}`, { description });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/timelogs"] });
       toast({ title: t('success'), description: t('updatedSuccessfully') });
       setEditingLog(null);
-      setEditNotes("");
       setEditDescription("");
     },
     onError: () => {
@@ -185,15 +183,13 @@ export default function ProductivityPage() {
   const handleEdit = (log: TimeLog) => {
     setEditingLog(log);
     setEditDescription(log.description || "");
-    setEditNotes(log.notes || "");
   };
 
   const handleSaveEdit = () => {
     if (editingLog) {
       updateTimeLogMutation.mutate({
         timeLogId: editingLog.id,
-        description: editDescription,
-        notes: editNotes
+        description: editDescription
       });
     }
   };
@@ -263,7 +259,7 @@ export default function ProductivityPage() {
               ) : (
                 <>
                   <div className="text-2xl font-bold brand-heading text-blue-600" data-testid="stat-running-total">
-                    {formatTotalDuration(totalHours)}
+                    {formatTotalDuration(totalSeconds)}
                   </div>
                   <div className="text-xs text-gray-600 mt-1">
                     {t('allTimeEntries')}
@@ -566,17 +562,6 @@ export default function ProductivityPage() {
                     value={editDescription}
                     onChange={(e) => setEditDescription(e.target.value)}
                     placeholder="Enter description..."
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="edit-notes">Notes</Label>
-                  <Textarea
-                    id="edit-notes"
-                    value={editNotes}
-                    onChange={(e) => setEditNotes(e.target.value)}
-                    placeholder="Add notes..."
-                    rows={3}
                     className="mt-1"
                   />
                 </div>
