@@ -34,7 +34,9 @@ export default function Home() {
   const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'completed'>('active');
   const [selectedAssignee, setSelectedAssignee] = useState<string>('all');
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    return localStorage.getItem("first-success-dismissed") !== "true";
+  });
 
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
