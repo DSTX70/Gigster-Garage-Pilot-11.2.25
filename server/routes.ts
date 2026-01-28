@@ -955,8 +955,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Authentication required" });
       }
       
-      // Admin always has access
-      if (user.role === 'admin') {
+      // Admin and Tester always have full access to all features
+      if (user.role === 'admin' || user.role === 'tester') {
         return next();
       }
       
@@ -981,7 +981,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
    * More granular than requirePlan - checks specific feature flags
    */
   const hasFeature = (user: any, feature: string): boolean => {
-    if (user.role === 'admin') return true;
+    if (user.role === 'admin' || user.role === 'tester') return true;
     
     const plan = user.plan || "free";
     const overrides = user.featuresOverride || {};
@@ -1424,6 +1424,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           email: "tester@gigstergarage.test",
           name: "Platform Tester",
           role: "tester",
+          plan: "enterprise",
           hasCompletedOnboarding: true,
         });
         
