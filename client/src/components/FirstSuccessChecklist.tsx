@@ -178,7 +178,7 @@ export function FirstSuccessChecklist({ collapsed = false, onDismiss }: FirstSuc
     onDismiss?.();
   };
 
-  if (isDismissed || (user?.hasCompletedOnboarding && allComplete)) {
+  if (isDismissed || user?.hasCompletedOnboarding) {
     return null;
   }
 
