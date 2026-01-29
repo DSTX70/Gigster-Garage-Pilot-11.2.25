@@ -906,7 +906,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
    * Tasks have createdById AND assignedToId
    */
   const checkTaskOwnership = async (taskId: string, userId: string, userRole: string): Promise<boolean> => {
-    if (userRole === 'admin') return true;
+    if (userRole === 'admin' || userRole === 'tester') return true;
     const task = await storage.getTask(taskId);
     if (!task) return false;
     // User can access if they created it OR it's assigned to them
