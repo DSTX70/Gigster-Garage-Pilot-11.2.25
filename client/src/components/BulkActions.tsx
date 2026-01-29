@@ -41,6 +41,13 @@ interface BatchProgress {
   status: 'running' | 'completed' | 'error';
 }
 
+interface BulkApiResponse {
+  total: number;
+  completed: number;
+  errors: number;
+  skipped?: number;
+}
+
 export function BulkActions<T extends { id: string }>({ 
   entityType, 
   items, 
@@ -73,12 +80,12 @@ export function BulkActions<T extends { id: string }>({
 
   // Bulk delete mutation
   const bulkDeleteMutation = useMutation({
-    mutationFn: async (ids: string[]) => {
+    mutationFn: async (ids: string[]): Promise<BulkApiResponse> => {
       setBatchProgress({ total: ids.length, completed: 0, errors: 0, status: 'running' });
       
-      return apiRequest('POST', `/api/bulk/${entityType}/delete`, { ids });
+      return apiRequest('POST', `/api/bulk/${entityType}/delete`, { ids }) as Promise<BulkApiResponse>;
     },
-    onSuccess: (data) => {
+    onSuccess: (data: BulkApiResponse) => {
       setBatchProgress({ ...data, status: 'completed' });
       queryClient.invalidateQueries({ queryKey: [`/api/${entityType}`] });
       onSelectionChange([]);
@@ -100,12 +107,12 @@ export function BulkActions<T extends { id: string }>({
 
   // Bulk edit mutation
   const bulkEditMutation = useMutation({
-    mutationFn: async ({ ids, updates }: { ids: string[], updates: BulkEditData }) => {
+    mutationFn: async ({ ids, updates }: { ids: string[], updates: BulkEditData }): Promise<BulkApiResponse> => {
       setBatchProgress({ total: ids.length, completed: 0, errors: 0, status: 'running' });
       
-      return apiRequest('POST', `/api/bulk/${entityType}/edit`, { ids, updates });
+      return apiRequest('POST', `/api/bulk/${entityType}/edit`, { ids, updates }) as Promise<BulkApiResponse>;
     },
-    onSuccess: (data) => {
+    onSuccess: (data: BulkApiResponse) => {
       setBatchProgress({ ...data, status: 'completed' });
       queryClient.invalidateQueries({ queryKey: [`/api/${entityType}`] });
       onSelectionChange([]);
@@ -341,10 +348,11 @@ export function BulkActions<T extends { id: string }>({
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="todo">To Do</SelectItem>
-                      <SelectItem value="in_progress">In Progress</SelectItem>
-                      <SelectItem value="review">Review</SelectItem>
-                      <SelectItem value="done">Done</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="high">High Priority</SelectItem>
+                      <SelectItem value="critical">Critical</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -359,7 +367,6 @@ export function BulkActions<T extends { id: string }>({
                       <SelectItem value="low">Low</SelectItem>
                       <SelectItem value="medium">Medium</SelectItem>
                       <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="urgent">Urgent</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
