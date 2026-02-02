@@ -26,8 +26,7 @@ export default function InvoiceDetails() {
   // Send invoice mutation
   const sendInvoiceMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", `/api/invoices/${invoiceId}/send`) as Response;
-      return res.json();
+      return await apiRequest("POST", `/api/invoices/${invoiceId}/send`);
     },
     onSuccess: () => {
       toast({

@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { AppHeader } from "@/components/app-header";
 import { Link } from "wouter";
 import { ArrowLeft, FileText, Plus, X, Send, Download, Eye, PenTool, Loader2, ChevronDown, FolderOpen } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "@/lib/i18n";
 import type { Project } from "@shared/schema";
@@ -213,6 +213,70 @@ export default function CreateProposal() {
       console.error("Filing Cabinet save error:", err);
     },
   });
+
+  // Send proposal mutation
+  const sendProposalMutation = useMutation({
+    mutationFn: async (proposalId: string) => {
+      return await apiRequest<any>("POST", `/api/proposals/${proposalId}/send`);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Proposal Sent!",
+        description: "The proposal has been sent to the client via email.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/proposals"] });
+    },
+    onError: (err: any) => {
+      const msg = err?.message || "Failed to send proposal. Please check that email is configured.";
+      toast({
+        title: "Send Failed",
+        description: msg,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Handle send - saves first then sends
+  const handleSendProposal = async () => {
+    if (!formData.clientEmail) {
+      toast({
+        title: "Email Required",
+        description: "Please enter a client email address before sending.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // If we have a saved proposal, send it directly
+    if (createdProposalId) {
+      sendProposalMutation.mutate(createdProposalId);
+    } else {
+      // Otherwise, save first then send
+      const proposalData = {
+        title: (formData.title ?? "").toString().trim(),
+        projectId: formData.projectId?.trim() || null,
+        clientName: formData.clientName?.trim() || null,
+        clientEmail: formData.clientEmail?.trim() || null,
+        projectDescription: formData.projectDescription?.trim() || null,
+        totalBudget: Number(formData.totalBudget ?? 0),
+        timeline: formData.timeline?.trim() || null,
+        deliverables: formData.deliverables?.trim() || null,
+        terms: formData.terms?.trim() || null,
+        lineItems,
+        calculatedTotal: Number(getTotalAmount()),
+        expiresInDays: 30
+      };
+      
+      try {
+        const savedProposal = await saveProposalMutation.mutateAsync(proposalData);
+        if (savedProposal?.id) {
+          sendProposalMutation.mutate(savedProposal.id);
+        }
+      } catch {
+        // Error already handled in mutation
+      }
+    }
+  };
 
   const handleSave = () => {
     const proposalData = {
@@ -482,9 +546,12 @@ export default function CreateProposal() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Button onClick={handleSave}>
+              <Button 
+                onClick={handleSendProposal}
+                disabled={sendProposalMutation.isPending || saveProposalMutation.isPending}
+              >
                 <Send className="h-4 w-4 mr-2" />
-                Send Proposal
+                {sendProposalMutation.isPending ? "Sending..." : "Send Proposal"}
               </Button>
             </div>
           </div>
@@ -978,9 +1045,14 @@ export default function CreateProposal() {
                   <FileText className="h-4 w-4 mr-2" />
                   {t('saveProposal')}
                 </Button>
-                <Button variant="default" className="bg-green-600 hover:bg-green-700">
+                <Button 
+                  variant="default" 
+                  className="bg-green-600 hover:bg-green-700"
+                  onClick={handleSendProposal}
+                  disabled={sendProposalMutation.isPending || saveProposalMutation.isPending}
+                >
                   <Send className="h-4 w-4 mr-2" />
-                  {t('sendProposal')}
+                  {sendProposalMutation.isPending ? "Sending..." : t('sendProposal')}
                 </Button>
               </div>
             </CardContent>
