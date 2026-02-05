@@ -170,9 +170,8 @@ export function FirstSuccessChecklist({ collapsed = false, onDismiss }: FirstSuc
   };
 
   const handleDismiss = () => {
-    if (allComplete) {
-      completeOnboardingMutation.mutate();
-    }
+    // Always mark onboarding as complete on server when user dismisses
+    completeOnboardingMutation.mutate();
     localStorage.setItem("first-success-dismissed", "true");
     setIsDismissed(true);
     onDismiss?.();

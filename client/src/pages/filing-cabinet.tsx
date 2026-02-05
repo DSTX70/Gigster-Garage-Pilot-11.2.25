@@ -180,14 +180,45 @@ export default function FilingCabinet() {
 
   // Document actions
   const handleDownloadDocument = async (document: DocumentSearchResult) => {
+    // If we have sourceId and sourceType, try to get fresh PDF from the API
+    const sourceId = document.metadata?.sourceId;
+    const sourceType = document.metadata?.sourceType || document.type;
+    
+    if (sourceId && sourceType) {
+      try {
+        // Try direct PDF generation endpoint first
+        let pdfUrl: string | null = null;
+        switch (sourceType) {
+          case 'invoice':
+            pdfUrl = `/api/invoices/${sourceId}/pdf`;
+            break;
+          case 'proposal':
+            pdfUrl = `/api/proposals/${sourceId}/pdf`;
+            break;
+          case 'contract':
+            pdfUrl = `/api/contracts/${sourceId}/pdf`;
+            break;
+          case 'presentation':
+            pdfUrl = `/api/presentations/${sourceId}/pdf`;
+            break;
+        }
+        
+        if (pdfUrl) {
+          window.open(pdfUrl, '_blank');
+          return;
+        }
+      } catch (error) {
+        console.error('Error generating PDF:', error);
+      }
+    }
+    
+    // Fallback to stored file URL
     if (document.fileUrl) {
       try {
-        // First check if file exists
         const response = await fetch(document.fileUrl, { method: 'HEAD' });
         if (response.ok) {
           window.open(document.fileUrl, '_blank');
         } else {
-          // File not found - offer alternatives
           const editorRoute = getEditorRoute(document);
           if (editorRoute) {
             toast({
@@ -198,13 +229,12 @@ export default function FilingCabinet() {
           } else {
             toast({
               title: "File Not Available", 
-              description: "The file for this document was not created. This may happen if PDF generation was unavailable when the document was saved.",
+              description: "The file for this document was not created. Please try editing the source document to regenerate the PDF.",
               variant: "destructive"
             });
           }
         }
       } catch (error) {
-        // Network error or other issue
         toast({
           title: "Download Error",
           description: "Unable to access the file. Please try again.",

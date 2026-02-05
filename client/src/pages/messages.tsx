@@ -11,15 +11,17 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Mail, MailOpen, Reply, Trash2, ArrowLeft, Paperclip, Send, X, FileText, Download, FolderOpen, HardDrive, Upload } from "lucide-react";
+import { Mail, MailOpen, Reply, Trash2, ArrowLeft, Paperclip, Send, X, FileText, Download, FolderOpen, HardDrive, Upload, ArrowUpRight } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { CoachSidebar } from "@/components/gigsterCoach/CoachSidebar";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Message {
   id: string;
   from: string;
+  fromUserId?: string;
   to?: string;
   subject: string;
   content: string;
@@ -27,6 +29,7 @@ interface Message {
   read: boolean;
   priority: 'low' | 'medium' | 'high';
   attachments?: Attachment[];
+  isSent?: boolean;
 }
 
 interface Attachment {
@@ -47,6 +50,7 @@ interface ComposeData {
 
 export function MessagesPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [isReplyOpen, setIsReplyOpen] = useState(false);
@@ -105,13 +109,15 @@ export function MessagesPage() {
   const messages: Message[] = messagesData.map((msg: any) => ({
     id: msg.id,
     from: msg.fromUser?.name || msg.fromUser?.username || 'System',
+    fromUserId: msg.fromUserId,
     to: msg.toEmail,
     subject: msg.subject,
     content: msg.content,
     timestamp: new Date(msg.createdAt),
     read: msg.isRead,
     priority: msg.priority || 'medium',
-    attachments: msg.attachments || []
+    attachments: msg.attachments || [],
+    isSent: msg.fromUserId === user?.id
   }));
 
   const unreadCount = messages.filter(m => !m.read).length;
@@ -550,7 +556,9 @@ export function MessagesPage() {
                   <div className="flex items-start justify-between">
                     <div className="flex items-center space-x-3">
                       <div className="flex-shrink-0">
-                        {message.read ? (
+                        {message.isSent ? (
+                          <ArrowUpRight size={20} className="text-green-600" />
+                        ) : message.read ? (
                           <MailOpen size={20} className="text-gray-400" />
                         ) : (
                           <Mail size={20} className="text-blue-600" />
@@ -559,14 +567,19 @@ export function MessagesPage() {
                       <div>
                         <CardTitle className="text-base font-medium">
                           {message.subject}
-                          {!message.read && (
+                          {message.isSent && (
+                            <Badge variant="outline" className="ml-2 text-xs text-green-600 border-green-300">
+                              Sent
+                            </Badge>
+                          )}
+                          {!message.read && !message.isSent && (
                             <Badge variant="secondary" className="ml-2 text-xs">
                               New
                             </Badge>
                           )}
                         </CardTitle>
                         <CardDescription className="flex items-center space-x-2 mt-1">
-                          <span>From: {message.from}</span>
+                          <span>{message.isSent ? `To: ${message.to || 'Unknown'}` : `From: ${message.from}`}</span>
                           <span>•</span>
                           <span>{format(message.timestamp, 'MMM d, yyyy h:mm a')}</span>
                           <div className={`w-2 h-2 rounded-full ${getPriorityColor(message.priority)}`} />
@@ -631,7 +644,7 @@ export function MessagesPage() {
                   <div className={`w-2 h-2 rounded-full ${getPriorityColor(selectedMessage.priority)}`} />
                 </DialogTitle>
                 <DialogDescription>
-                  From: {selectedMessage.from} • {format(selectedMessage.timestamp, 'MMM d, yyyy h:mm a')}
+                  {selectedMessage.isSent ? `To: ${selectedMessage.to || 'Unknown'}` : `From: ${selectedMessage.from}`} • {format(selectedMessage.timestamp, 'MMM d, yyyy h:mm a')}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">

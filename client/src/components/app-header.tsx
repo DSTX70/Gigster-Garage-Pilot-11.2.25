@@ -41,7 +41,7 @@ const coreFeatures = [
 ];
 
 const businessOperations = [
-  { id: 'clients', title: 'Clients', icon: Users, path: '/client-list' },
+  { id: 'clients', title: 'Clients', icon: Users, path: '/clients' },
   { id: 'invoices', title: 'Invoices', icon: FileText, path: '/invoices' },
   { id: 'contracts', title: 'Contracts', icon: FileCheck, path: '/contracts' },
   { id: 'payments', title: 'Payments', icon: Building, path: '/payments' },

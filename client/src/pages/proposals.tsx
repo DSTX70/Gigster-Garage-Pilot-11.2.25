@@ -1,12 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { AppHeader } from "@/components/app-header";
-import { Plus, FileText, Eye, Edit, Send, Clock, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { Plus, FileText, Eye, Edit, Send, Clock, CheckCircle, XCircle, AlertCircle, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import type { Proposal } from "@shared/schema";
 
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive"; icon: typeof Clock }> = {
@@ -19,8 +21,30 @@ const statusConfig: Record<string, { label: string; variant: "default" | "second
 };
 
 export default function Proposals() {
+  const { toast } = useToast();
   const { data: proposals = [], isLoading } = useQuery<Proposal[]>({
     queryKey: ["/api/proposals"],
+  });
+
+  const sendProposalMutation = useMutation({
+    mutationFn: async (proposalId: string) => {
+      return await apiRequest<any>("POST", `/api/proposals/${proposalId}/send`);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Proposal Sent!",
+        description: "The proposal has been sent to the client via email.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/proposals"] });
+    },
+    onError: (err: any) => {
+      const msg = err?.message || "Failed to send proposal. Please check that email is configured.";
+      toast({
+        title: "Send Failed",
+        description: msg,
+        variant: "destructive",
+      });
+    },
   });
 
   const getStatusConfig = (status: string) => {
@@ -113,6 +137,26 @@ export default function Proposals() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 ml-4">
+                        {(proposal.status === 'draft' || proposal.status === 'pending') && proposal.clientEmail && (
+                          <Button 
+                            variant="default" 
+                            size="sm" 
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              sendProposalMutation.mutate(proposal.id);
+                            }}
+                            disabled={sendProposalMutation.isPending}
+                            data-testid={`button-send-proposal-${proposal.id}`}
+                          >
+                            {sendProposalMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                            ) : (
+                              <Send className="h-4 w-4 mr-1" />
+                            )}
+                            Send
+                          </Button>
+                        )}
                         <Link href={`/edit-proposal/${proposal.id}`}>
                           <Button variant="outline" size="sm" data-testid={`button-edit-proposal-${proposal.id}`}>
                             <Edit className="h-4 w-4 mr-1" />

@@ -5055,6 +5055,78 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
     }
   });
 
+  // Send invoice via email
+  app.post("/api/invoices/:id/send", requireAuth, async (req, res) => {
+    try {
+      let invoice = await storage.getInvoice(req.params.id, req.session.user!.id);
+      if (!invoice) {
+        return res.status(404).json({ error: "Invoice not found" });
+      }
+
+      if (!invoice.clientEmail) {
+        return res.status(400).json({ error: "No client email address provided" });
+      }
+
+      // Check if email is configured
+      if (!process.env.SENDGRID_API_KEY) {
+        return res.status(400).json({ error: "Email service not configured. Please configure SendGrid in Settings." });
+      }
+
+      // Ensure payment link exists before generating PDF
+      if (!invoice.paymentLink) {
+        await storage.generatePaymentLink(invoice.id);
+        invoice = await storage.getInvoice(req.params.id, req.session.user!.id);
+        if (!invoice) {
+          return res.status(404).json({ error: "Invoice not found after payment link generation" });
+        }
+      }
+
+      // Generate PDF with payment link
+      const invoiceWithPaymentUrl = {
+        ...invoice,
+        paymentUrl: `${req.protocol}://${req.get('host')}/pay-invoice?link=${invoice.paymentLink}`
+      };
+      const pdfBuffer = await generateInvoicePDF(invoiceWithPaymentUrl);
+
+      // Send email via SendGrid
+      const sgMail = await import('@sendgrid/mail');
+      sgMail.default.setApiKey(process.env.SENDGRID_API_KEY);
+
+      const msg = {
+        to: invoice.clientEmail,
+        from: process.env.SENDGRID_FROM_EMAIL || 'noreply@gigstergarage.com',
+        subject: `Invoice #${invoice.invoiceNumber} from Gigster Garage`,
+        html: `
+          <h2>Invoice #${invoice.invoiceNumber}</h2>
+          <p>Dear ${invoice.clientName},</p>
+          <p>Please find attached your invoice.</p>
+          <p><strong>Amount Due:</strong> $${parseFloat(invoice.totalAmount || '0').toFixed(2)}</p>
+          <p><strong>Due Date:</strong> ${invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : 'Upon receipt'}</p>
+          ${invoice.paymentLink ? `<p><a href="${invoiceWithPaymentUrl.paymentUrl}">Click here to pay online</a></p>` : ''}
+          <p>Thank you for your business!</p>
+        `,
+        attachments: [
+          {
+            content: pdfBuffer.toString('base64'),
+            filename: `invoice-${invoice.invoiceNumber}.pdf`,
+            type: 'application/pdf',
+            disposition: 'attachment'
+          }
+        ]
+      };
+
+      await sgMail.default.send(msg);
+
+      // Update invoice status to sent
+      await storage.updateInvoice(invoice.id, { status: 'sent' }, req.session.user!.id);
+
+      res.json({ success: true, message: "Invoice sent successfully" });
+    } catch (error) {
+      console.error("Error sending invoice:", error);
+      res.status(500).json({ error: "Failed to send invoice" });
+    }
+  });
+
   // Download proposal PDF
   app.get("/api/proposals/:id/pdf", requireAuth, async (req, res) => {
     try {
