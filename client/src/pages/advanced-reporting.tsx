@@ -49,14 +49,16 @@ import {
   Target,
   Activity,
   FolderOpen,
-  Loader2
+  Loader2,
+  ArrowLeft
 } from 'lucide-react';
 import { AppHeader } from '@/components/app-header';
 import { useAuth } from '@/hooks/useAuth';
 import { apiRequest } from '@/lib/queryClient';
 import { queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
+import { useLocation } from 'wouter';
+import { format as formatDate, subDays, startOfMonth, endOfMonth } from 'date-fns';
 
 interface ReportTemplate {
   id: string;
@@ -91,6 +93,7 @@ interface CustomReport {
 export default function AdvancedReportingPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [dateRange, setDateRange] = useState({
     start: subDays(new Date(), 30),
@@ -281,26 +284,53 @@ export default function AdvancedReportingPage() {
     });
   };
 
-  const exportReport = (format: 'pdf' | 'excel' | 'csv') => {
+  const exportReport = (exportFormat: 'pdf' | 'excel' | 'csv') => {
     if (!reportData) return;
 
-    // Create export functionality
-    const exportData = {
-      reportData,
-      format,
-      filename: `${selectedTemplate}_report_${format(new Date(), 'yyyy-MM-dd')}`
-    };
+    const dateStr = formatDate(new Date(), 'yyyy-MM-dd');
+    const templateObj = reportTemplates.find(t => t.id === selectedTemplate);
+    const reportName = templateObj?.name || selectedTemplate || 'Custom';
+    const sanitizedName = reportName.replace(/[^a-zA-Z0-9]/g, '-');
 
-    // Trigger download
-    const link = document.createElement('a');
-    link.href = `data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(exportData))}`;
-    link.download = `${exportData.filename}.json`;
-    link.click();
+    if (exportFormat === 'pdf') {
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        const metrics = reportData.data?.metrics || {};
+        const metricRows = Object.entries(metrics)
+          .map(([key, val]) => `<tr><td style="padding:8px;border:1px solid #ddd;font-weight:500;">${key.replace(/([A-Z])/g, ' $1').trim()}</td><td style="padding:8px;border:1px solid #ddd;">${typeof val === 'number' ? val.toLocaleString() : String(val)}</td></tr>`)
+          .join('');
 
-    toast({
-      title: "Export Started",
-      description: `Report exported as ${format.toUpperCase()}`,
-    });
+        printWindow.document.write(`
+          <html><head><title>${reportName} Report</title>
+          <style>body{font-family:Arial,sans-serif;padding:40px;color:#333}h1{color:#0d9488;margin-bottom:4px}table{width:100%;border-collapse:collapse;margin-top:20px}.meta{color:#666;font-size:14px;margin-bottom:24px}</style>
+          </head><body>
+          <h1>${reportName} Report</h1>
+          <p class="meta">Generated ${formatDate(new Date(reportData.generatedAt), 'PPP')} | Execution: ${reportData.executionTime}ms</p>
+          <table><thead><tr><th style="padding:8px;border:1px solid #ddd;text-align:left;background:#f3f4f6;">Metric</th><th style="padding:8px;border:1px solid #ddd;text-align:left;background:#f3f4f6;">Value</th></tr></thead>
+          <tbody>${metricRows || '<tr><td colspan="2" style="padding:8px;">No metrics data</td></tr>'}</tbody></table>
+          </body></html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+      }
+      toast({ title: "Export PDF", description: "Print dialog opened for PDF export" });
+    } else if (exportFormat === 'excel' || exportFormat === 'csv') {
+      const metrics = reportData.data?.metrics || {};
+      const rows = Object.entries(metrics).map(([key, val]) =>
+        `"${key.replace(/([A-Z])/g, ' $1').trim()}","${typeof val === 'number' ? val : String(val)}"`
+      );
+      const csvContent = `"Metric","Value"\n${rows.join('\n')}`;
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${sanitizedName}_report_${dateStr}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast({ title: "Export Complete", description: `Report exported as ${exportFormat.toUpperCase()}` });
+    }
   };
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
@@ -328,6 +358,15 @@ export default function AdvancedReportingPage() {
         {/* Header Section */}
         <div className="flex items-center justify-between mb-8">
           <div>
+            <Button
+              variant="ghost"
+              onClick={() => navigate('/')}
+              className="mb-3 text-gray-600 hover:text-gray-900 -ml-2"
+              data-testid="button-return-dashboard"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Return to Dashboard
+            </Button>
             <h1 className="text-4xl font-bold text-gray-900 mb-2">Advanced Reporting</h1>
             <p className="text-gray-600">Build custom reports with your choice of metrics, date ranges, and visualizations. Save report templates for regular use and export to PDF or CSV for sharing with clients or stakeholders.</p>
           </div>
@@ -535,7 +574,7 @@ export default function AdvancedReportingPage() {
                       <div>
                         <CardTitle className="text-xl capitalize">{selectedTemplate} Report</CardTitle>
                         <CardDescription>
-                          Generated on {format(new Date(reportData.generatedAt), 'PPP')} • 
+                          Generated on {formatDate(new Date(reportData.generatedAt), 'PPP')} • 
                           Execution time: {reportData.executionTime}ms
                         </CardDescription>
                       </div>
