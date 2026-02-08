@@ -678,9 +678,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         missingSecrets: process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY ? [] : ["OPENAI_API_KEY"],
       },
       email: {
-        configured: !!(process.env.SENDGRID_API_KEY || process.env.SENDGRID_API_KEY_2),
+        configured: !!(process.env.SENDGRID_API_KEY || process.env.SENDGRID_API_KEY_2 || process.env.SEND_GRID_KEY),
         enables: ["Email notifications", "Invoice delivery", "Team invitations"],
-        missingSecrets: process.env.SENDGRID_API_KEY || process.env.SENDGRID_API_KEY_2 ? [] : ["SENDGRID_API_KEY"],
+        missingSecrets: process.env.SENDGRID_API_KEY || process.env.SENDGRID_API_KEY_2 || process.env.SEND_GRID_KEY ? [] : ["SENDGRID_API_KEY"],
       },
       sms: {
         configured: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER),
@@ -740,7 +740,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/notifications/test-email", requireAuth, async (req: any, res) => {
     const user = req.session.user;
     
-    if (!process.env.SENDGRID_API_KEY && !process.env.SENDGRID_API_KEY_2) {
+    if (!process.env.SENDGRID_API_KEY && !process.env.SENDGRID_API_KEY_2 && !process.env.SEND_GRID_KEY) {
       return res.status(400).json({
         success: false,
         message: "Email not configured",
@@ -830,7 +830,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         configured: !!process.env.STRIPE_SECRET_KEY,
       },
       sendgrid: {
-        configured: !!(process.env.SENDGRID_API_KEY || process.env.SENDGRID_API_KEY_2),
+        configured: !!(process.env.SENDGRID_API_KEY || process.env.SENDGRID_API_KEY_2 || process.env.SEND_GRID_KEY),
       },
       twilio: {
         configured: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN),
@@ -1127,7 +1127,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       configuredIntegrations: {
         database: !!process.env.DATABASE_URL,
         stripe: !!process.env.STRIPE_SECRET_KEY,
-        sendgrid: !!(process.env.SENDGRID_API_KEY || process.env.SENDGRID_API_KEY_2),
+        sendgrid: !!(process.env.SENDGRID_API_KEY || process.env.SENDGRID_API_KEY_2 || process.env.SEND_GRID_KEY),
         twilio: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN),
         objectStorage: !!process.env.PRIVATE_OBJECT_DIR,
         openai: !!(process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY),
@@ -4346,7 +4346,8 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
 
       // Try to send email if configured and client has email
       let emailSent = false;
-      if (clientEmail && process.env.SENDGRID_API_KEY) {
+      const sgKey = process.env.SENDGRID_API_KEY || process.env.SENDGRID_API_KEY_2 || process.env.SEND_GRID_KEY;
+      if (clientEmail && sgKey) {
         try {
           console.log('🔄 Generating invoice PDF for sending');
           const invoicePDF = await generateInvoicePDF({
@@ -5075,7 +5076,8 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
       }
 
       // Check if email is configured
-      if (!process.env.SENDGRID_API_KEY) {
+      const sendgridKey = process.env.SENDGRID_API_KEY || process.env.SENDGRID_API_KEY_2 || process.env.SEND_GRID_KEY;
+      if (!sendgridKey) {
         return res.status(400).json({ error: "Email service not configured. Please configure SendGrid in Settings." });
       }
 
@@ -5097,7 +5099,7 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
 
       // Send email via SendGrid
       const sgMail = await import('@sendgrid/mail');
-      sgMail.default.setApiKey(process.env.SENDGRID_API_KEY);
+      sgMail.default.setApiKey(sendgridKey);
 
       const msg = {
         to: invoice.clientEmail,
@@ -6382,7 +6384,7 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
 
   // Email configuration info endpoint
   app.get("/api/messages/email-config", requireAuth, async (req, res) => {
-    const sendGridConfigured = !!(process.env.SENDGRID_API_KEY || process.env.SENDGRID_API_KEY_2);
+    const sendGridConfigured = !!(process.env.SENDGRID_API_KEY || process.env.SENDGRID_API_KEY_2 || process.env.SEND_GRID_KEY);
     const webhookUrl = `${process.env.APP_URL || 'http://localhost:5000'}/api/inbound-email`;
     
     res.json({

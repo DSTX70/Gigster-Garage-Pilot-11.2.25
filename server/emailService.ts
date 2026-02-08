@@ -2,7 +2,7 @@ import { MailService } from '@sendgrid/mail';
 import twilio from 'twilio';
 import type { Task, User, Message } from '@shared/schema';
 
-const SENDGRID_KEY = process.env.SENDGRID_API_KEY_2 || process.env.SENDGRID_API_KEY;
+const SENDGRID_KEY = process.env.SENDGRID_API_KEY_2 || process.env.SENDGRID_API_KEY || process.env.SEND_GRID_KEY;
 
 if (!SENDGRID_KEY) {
   console.warn("SENDGRID_API_KEY environment variable not set - email notifications disabled");
@@ -56,7 +56,7 @@ interface EmailParams {
 }
 
 export async function sendEmail(params: EmailParams): Promise<boolean> {
-  const SENDGRID_KEY = process.env.SENDGRID_API_KEY_2 || process.env.SENDGRID_API_KEY;
+  const SENDGRID_KEY = process.env.SENDGRID_API_KEY_2 || process.env.SENDGRID_API_KEY || process.env.SEND_GRID_KEY;
   
   if (!SENDGRID_KEY || !SENDGRID_KEY.startsWith('SG.')) {
     console.log("📧 Email notification would be sent:", params.subject, "to", params.to);
