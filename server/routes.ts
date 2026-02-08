@@ -9071,6 +9071,72 @@ IMPORTANT: Generate all content in ${targetLanguage}.`
     }
   });
 
+  app.post('/api/reports/save-to-filing-cabinet', requireAuth, async (req, res) => {
+    try {
+      const { reportData, reportName, reportType } = req.body;
+
+      if (!reportData || !reportName) {
+        return res.status(400).json({ error: "Report data and name are required" });
+      }
+
+      const reportContent = JSON.stringify(reportData, null, 2);
+      const fileBuffer = Buffer.from(reportContent);
+      const sanitizedName = reportName.replace(/[^a-zA-Z0-9]/g, '-');
+      const finalFileName = `report-${sanitizedName}-${Date.now()}.json`;
+
+      const objectStorageService = new ObjectStorageService();
+      const objectKey = `${req.session.user!.id}/filing-cabinet/${finalFileName}`;
+
+      await objectStorageService.put(objectKey, fileBuffer, {
+        contentType: 'application/json'
+      });
+
+      const fileUrl = `/api/objects/${objectKey}`;
+
+      let existingClients = await storage.getClients();
+      let generatedClient = existingClients.find(c => c.name === "Generated Content");
+
+      if (!generatedClient) {
+        generatedClient = await storage.createClient({
+          name: "Generated Content",
+          email: '',
+          phone: '',
+          address: '',
+          notes: 'Auto-created for generated and saved content'
+        });
+      }
+
+      const documentData = {
+        clientId: generatedClient.id,
+        name: `Report: ${reportName}`,
+        description: `${reportType || 'Custom'} report - ${reportName}`,
+        type: 'report' as const,
+        fileUrl: fileUrl,
+        fileName: finalFileName,
+        fileSize: fileBuffer.length,
+        mimeType: 'application/json',
+        uploadedById: req.session.user!.id,
+        metadata: {
+          sourceType: 'report',
+          reportType: reportType || 'custom',
+          generatedAt: new Date().toISOString()
+        }
+      };
+
+      const document = await storage.createClientDocument(documentData);
+      console.log(`✅ Report saved to Filing Cabinet: ${document.name}`);
+
+      res.status(201).json({
+        success: true,
+        message: "Report saved to Filing Cabinet successfully",
+        document
+      });
+    } catch (error) {
+      console.error("Error saving report to Filing Cabinet:", error);
+      res.status(500).json({ error: "Failed to save report to Filing Cabinet" });
+    }
+  });
+
   // Webhook & Integration API endpoints
   app.get('/api/webhooks', requireAuth, async (req, res) => {
     try {

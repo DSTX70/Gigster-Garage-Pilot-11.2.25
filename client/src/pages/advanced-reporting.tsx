@@ -47,7 +47,9 @@ import {
   Clock,
   DollarSign,
   Target,
-  Activity
+  Activity,
+  FolderOpen,
+  Loader2
 } from 'lucide-react';
 import { AppHeader } from '@/components/app-header';
 import { useAuth } from '@/hooks/useAuth';
@@ -212,6 +214,32 @@ export default function AdvancedReportingPage() {
     }
   });
 
+  const saveToFilingCabinetMutation = useMutation({
+    mutationFn: async () => {
+      const templateObj = reportTemplates.find(t => t.id === selectedTemplate);
+      return await apiRequest('POST', '/api/reports/save-to-filing-cabinet', {
+        reportData: reportData,
+        reportName: templateObj?.name || selectedTemplate || 'Custom Report',
+        reportType: templateObj?.type || 'custom'
+      });
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/documents'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/search/documents'] });
+      toast({
+        title: "Saved to Filing Cabinet!",
+        description: data.message || "Report saved to Filing Cabinet successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Save Failed",
+        description: error?.message || "Failed to save report to Filing Cabinet.",
+        variant: "destructive",
+      });
+    }
+  });
+
   const handleCreateCustomReport = () => {
     if (!customReportName.trim()) {
       toast({
@@ -306,6 +334,20 @@ export default function AdvancedReportingPage() {
           <div className="flex items-center space-x-3">
             {reportData && (
               <>
+                <Button 
+                  variant="outline"
+                  onClick={() => saveToFilingCabinetMutation.mutate()}
+                  disabled={saveToFilingCabinetMutation.isPending}
+                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                  data-testid="button-save-to-filing-cabinet"
+                >
+                  {saveToFilingCabinetMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <FolderOpen className="h-4 w-4 mr-2" />
+                  )}
+                  {saveToFilingCabinetMutation.isPending ? 'Saving...' : 'Save to Filing Cabinet'}
+                </Button>
                 <Button 
                   variant="outline"
                   onClick={() => exportReport('pdf')}
