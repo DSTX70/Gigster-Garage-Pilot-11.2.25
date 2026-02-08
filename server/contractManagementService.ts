@@ -226,7 +226,7 @@ Gigster Garage Legal System
 
       const emailSent = await sendEmail({
         to: notificationEmail,
-        from: 'legal@gigstergarage.com',
+        from: 'dustinsparks@mac.com',
         subject,
         text: textContent,
         html: htmlContent
@@ -310,7 +310,7 @@ Gigster Garage Legal System
 
       await sendEmail({
         to: notificationEmail,
-        from: 'legal@gigstergarage.com',
+        from: 'dustinsparks@mac.com',
         subject,
         text: textContent,
         html: textContent.replace(/\n/g, '<br>')

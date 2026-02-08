@@ -5103,7 +5103,7 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
 
       const msg = {
         to: invoice.clientEmail,
-        from: process.env.SENDGRID_FROM_EMAIL || 'noreply@gigstergarage.com',
+        from: process.env.SENDGRID_FROM_EMAIL || 'dustinsparks@mac.com',
         subject: `Invoice #${invoice.invoiceNumber} from Gigster Garage`,
         html: `
           <h2>Invoice #${invoice.invoiceNumber}</h2>

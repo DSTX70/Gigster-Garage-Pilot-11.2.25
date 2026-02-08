@@ -145,7 +145,7 @@ Gigster Garage System
 
     const emailSent = await sendEmail({
       to: notificationEmail,
-      from: 'proposals@gigstergarage.com',
+      from: 'dustinsparks@mac.com',
       subject,
       text: textContent,
       html: htmlContent

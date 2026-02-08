@@ -537,7 +537,7 @@ export async function sendMessageAsEmail(
   message: Message,
   fromUser: User,
   toEmail: string,
-  fromEmail: string = 'noreply@vsuite.app'
+  fromEmail: string = 'dustinsparks@mac.com'
 ): Promise<boolean> {
   const subject = message.subject;
   
