@@ -151,7 +151,7 @@ export function BulkTable<T extends { id: string }>({
                     <TableHead className="w-12">
                       <Checkbox
                         checked={allSelected}
-                        ref={(ref) => {
+                        ref={(ref: any) => {
                           if (ref) ref.indeterminate = someSelected;
                         }}
                         onCheckedChange={handleSelectAll}

@@ -7608,6 +7608,9 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
         }
       }
 
+      await AppCache.invalidatePattern('api:GET:/api/tasks*');
+      await AppCache.invalidatePattern('tasks:*');
+      await AppCache.invalidatePattern('task:*');
       res.json({ total: ids.length, completed, errors });
     } catch (error) {
       console.error("Error in bulk delete tasks:", error);
@@ -7660,6 +7663,9 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
       }
 
       console.log(`📦 Bulk edit complete: ${completed} updated, ${errors} errors, ${skipped} skipped`);
+      await AppCache.invalidatePattern('api:GET:/api/tasks*');
+      await AppCache.invalidatePattern('tasks:*');
+      await AppCache.invalidatePattern('task:*');
       res.json({ total: ids.length, completed, errors, skipped });
     } catch (error) {
       console.error("Error in bulk edit tasks:", error);
@@ -7690,6 +7696,9 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
         }
       }
 
+      await AppCache.invalidatePattern('api:GET:/api/projects*');
+      await AppCache.invalidatePattern('projects:*');
+      await AppCache.invalidatePattern('project:*');
       res.json({ total: ids.length, completed, errors });
     } catch (error) {
       console.error("Error in bulk delete projects:", error);
@@ -7719,6 +7728,9 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
         }
       }
 
+      await AppCache.invalidatePattern('api:GET:/api/projects*');
+      await AppCache.invalidatePattern('projects:*');
+      await AppCache.invalidatePattern('project:*');
       res.json({ total: ids.length, completed, errors });
     } catch (error) {
       console.error("Error in bulk edit projects:", error);
@@ -7748,6 +7760,9 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
         }
       }
 
+      await AppCache.invalidatePattern('api:GET:/api/clients*');
+      await AppCache.invalidatePattern('clients:*');
+      await AppCache.invalidatePattern('client:*');
       res.json({ total: ids.length, completed, errors });
     } catch (error) {
       console.error("Error in bulk delete clients:", error);
@@ -7777,6 +7792,9 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
         }
       }
 
+      await AppCache.invalidatePattern('api:GET:/api/clients*');
+      await AppCache.invalidatePattern('clients:*');
+      await AppCache.invalidatePattern('client:*');
       res.json({ total: ids.length, completed, errors });
     } catch (error) {
       console.error("Error in bulk edit clients:", error);

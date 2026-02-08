@@ -138,7 +138,8 @@ export function BulkActions<T extends { id: string }>({
   const exportMutation = useMutation({
     mutationFn: async ({ format, ids }: { format: 'csv' | 'json', ids?: string[] }) => {
       const response = await fetch(`/api/export/${entityType}?format=${format}${ids ? `&ids=${ids.join(',')}` : ''}`, {
-        method: 'GET'
+        method: 'GET',
+        credentials: 'include'
       });
       
       if (!response.ok) {
@@ -182,6 +183,7 @@ export function BulkActions<T extends { id: string }>({
       
       const response = await fetch(`/api/import/${entityType}`, {
         method: 'POST',
+        credentials: 'include',
         body: formData
       });
       
