@@ -8,6 +8,7 @@ import {
   text,
   boolean,
   integer,
+  serial,
   decimal,
   primaryKey,
   date,
@@ -1641,15 +1642,16 @@ export const insertAgencyHubItemSchema = createInsertSchema(agencyHubItems).omit
 
 // User Profiles - Extended profile for personalization
 export const userProfiles = pgTable("user_profiles", {
-  userId: text("user_id").primaryKey().notNull(),
-  preferredName: text("preferred_name"),
-  role: text("role"),
-  primaryGoals: jsonb("primary_goals").$type<string[]>().notNull().default([]),
-  timeAvailable: text("time_available"),
-  tonePreference: text("tone_preference").notNull().default("reassuring"),
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id", { length: 255 }).notNull().unique(),
+  preferredName: varchar("preferred_name", { length: 255 }),
+  role: varchar("role", { length: 255 }),
+  primaryGoals: text("primary_goals").array().notNull().default(sql`'{}'::text[]`),
+  timeAvailable: varchar("time_available", { length: 255 }),
+  tonePreference: varchar("tone_preference", { length: 255 }).notNull().default("reassuring"),
   experienceLevel: text("experience_level").notNull().default("new"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 export type UserProfile = typeof userProfiles.$inferSelect;
@@ -1657,22 +1659,23 @@ export type InsertUserProfile = typeof userProfiles.$inferInsert;
 
 // Business Profiles - Detailed business context for Coach personalization
 export const businessProfiles = pgTable("business_profiles", {
-  userId: text("user_id").primaryKey().notNull(),
-  businessName: text("business_name"),
-  industry: text("industry"),
-  entityType: text("entity_type"),
-  businessStage: text("business_stage"),
-  employeesRange: text("employees_range").notNull().default("Just me"),
-  offerings: jsonb("offerings").$type<string[]>().notNull().default([]),
-  pricingModel: text("pricing_model"),
-  serviceArea: text("service_area"),
-  leadSources: jsonb("lead_sources").$type<string[]>().notNull().default([]),
-  toolsUsed: jsonb("tools_used").$type<string[]>().notNull().default([]),
-  painPoints: jsonb("pain_points").$type<string[]>().notNull().default([]),
-  yearsInBusiness: text("years_in_business"),
-  revenueRange: text("revenue_range"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id", { length: 255 }).notNull().unique(),
+  businessName: varchar("business_name", { length: 255 }),
+  industry: varchar("industry", { length: 255 }),
+  entityType: varchar("entity_type", { length: 255 }),
+  businessStage: varchar("business_stage", { length: 255 }),
+  employeesRange: varchar("employees_range", { length: 255 }).notNull().default("Just me"),
+  offerings: text("offerings").array().notNull().default(sql`'{}'::text[]`),
+  pricingModel: varchar("pricing_model", { length: 255 }),
+  serviceArea: varchar("service_area", { length: 255 }),
+  leadSources: text("lead_sources").array().notNull().default(sql`'{}'::text[]`),
+  toolsUsed: text("tools_used").array().notNull().default(sql`'{}'::text[]`),
+  painPoints: text("pain_points").array().notNull().default(sql`'{}'::text[]`),
+  yearsInBusiness: varchar("years_in_business", { length: 255 }),
+  revenueRange: varchar("revenue_range", { length: 255 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 export type BusinessProfile = typeof businessProfiles.$inferSelect;
@@ -1680,13 +1683,14 @@ export type InsertBusinessProfile = typeof businessProfiles.$inferInsert;
 
 // Onboarding Progress - Tracks wizard completion
 export const onboardingProgress = pgTable("onboarding_progress", {
-  userId: text("user_id").primaryKey().notNull(),
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id", { length: 255 }).notNull().unique(),
   lastSeenStep: integer("last_seen_step").notNull().default(1),
-  completedAt: timestamp("completed_at", { withTimezone: true }),
+  completedAt: timestamp("completed_at"),
   personalizeUsingProfile: boolean("personalize_using_profile").notNull().default(true),
   brandSetupCompleted: boolean("brand_setup_completed").notNull().default(false),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 export type OnboardingProgress = typeof onboardingProgress.$inferSelect;
