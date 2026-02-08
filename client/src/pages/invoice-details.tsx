@@ -26,12 +26,12 @@ export default function InvoiceDetails() {
   // Send invoice mutation
   const sendInvoiceMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("POST", `/api/invoices/${invoiceId}/send`);
+      return await apiRequest<{ success: boolean; message: string; emailDelivered?: boolean }>("POST", `/api/invoices/${invoiceId}/send`);
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast({
         title: "Invoice Sent",
-        description: "The invoice has been sent to the client via email.",
+        description: data?.message || "The invoice has been marked as sent.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/invoices", invoiceId] });
     },
@@ -167,17 +167,13 @@ export default function InvoiceDetails() {
                   <TooltipTrigger asChild>
                     <span>
                       <Button
-                        onClick={() => isEmailConfigured && sendInvoiceMutation.mutate()}
-                        className={isEmailConfigured 
-                          ? "bg-[#FF7F00] hover:bg-[#e6720a] text-white" 
-                          : "bg-gray-400 cursor-not-allowed text-white"}
-                        disabled={!isEmailConfigured || sendInvoiceMutation.isPending}
+                        onClick={() => sendInvoiceMutation.mutate()}
+                        className="bg-[#FF7F00] hover:bg-[#e6720a] text-white"
+                        disabled={sendInvoiceMutation.isPending}
                         data-testid="button-send-invoice"
                       >
                         {sendInvoiceMutation.isPending ? (
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        ) : !isEmailConfigured ? (
-                          <AlertCircle className="h-4 w-4 mr-2" />
                         ) : (
                           <Send className="h-4 w-4 mr-2" />
                         )}

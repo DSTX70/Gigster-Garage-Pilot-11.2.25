@@ -3662,17 +3662,17 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
 
   app.post("/api/proposals/:id/send", requireAuth, async (req, res) => {
     try {
-      const result = sendProposalSchema.safeParse(req.body);
-      if (!result.success) {
-        return res.status(400).json({
-          message: "Invalid send data",
-          errors: result.error.errors
-        });
-      }
-
       const proposal = await storage.getProposal(req.params.id);
       if (!proposal) {
         return res.status(404).json({ message: "Proposal not found" });
+      }
+
+      // Accept clientEmail from body or fall back to proposal's clientEmail
+      const recipientEmail = req.body?.clientEmail || proposal.clientEmail;
+      const message = req.body?.message;
+      
+      if (!recipientEmail) {
+        return res.status(400).json({ message: "No client email available. Please add a client email to the proposal first." });
       }
 
       // Generate shareable link
@@ -3685,8 +3685,7 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
       });
 
       // Send enhanced email if client email is provided
-      const { clientEmail: recipientEmail, message } = result.data;
-      const emailTo = recipientEmail || proposal.clientEmail;
+      const emailTo = recipientEmail;
       const includePDF = true; // Default to include PDF
       
       if (emailTo) {
@@ -4337,48 +4336,56 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
 
       // Get client information
       const client = invoice.clientId ? await storage.getClient(invoice.clientId) : null;
-      if (!client || !client.email) {
-        return res.status(400).json({ message: "Client email required to send invoice" });
+      const clientEmail = client?.email || invoice.clientEmail;
+
+      // Always update invoice status to sent
+      await storage.updateInvoice(invoice.id, { 
+        status: 'sent',
+        sentAt: new Date()
+      });
+
+      // Try to send email if configured and client has email
+      let emailSent = false;
+      if (clientEmail && process.env.SENDGRID_API_KEY) {
+        try {
+          console.log('🔄 Generating invoice PDF for sending');
+          const invoicePDF = await generateInvoicePDF({
+            ...invoice,
+            clientName: client?.name || invoice.clientName || 'Client',
+            clientEmail: clientEmail,
+          });
+          console.log('✅ Invoice PDF generated successfully');
+
+          emailSent = await sendInvoiceEmail(
+            clientEmail,
+            {
+              ...invoice,
+              clientName: client?.name || invoice.clientName || 'Client',
+              clientEmail: clientEmail,
+            },
+            invoicePDF,
+            `Please find your invoice attached. Payment is due within the terms specified.`
+          );
+        } catch (emailError) {
+          console.error("Email sending error:", emailError);
+        }
       }
 
-      // Generate PDF invoice
-      console.log('🔄 Generating invoice PDF for sending');
-      const invoicePDF = await generateInvoicePDF({
-        ...invoice,
-        clientName: client.name,
-        clientEmail: client.email,
-      });
-      console.log('✅ Invoice PDF generated successfully');
-
-      // Send invoice email with PDF attachment
-      const emailSent = await sendInvoiceEmail(
-        client.email,
-        {
-          ...invoice,
-          clientName: client.name,
-          clientEmail: client.email,
-        },
-        invoicePDF,
-        `Please find your invoice attached. Payment is due within the terms specified.`
-      );
-
       if (emailSent) {
-        // Update invoice status to sent
-        await storage.updateInvoice(invoice.id, { 
-          status: 'sent',
-          sentAt: new Date()
-        });
-
-        console.log(`📧 Invoice sent successfully to ${client.email}`);
+        console.log(`📧 Invoice sent successfully to ${clientEmail}`);
         res.json({
           success: true,
-          message: `Invoice sent successfully to ${client.email}`,
-          sentTo: client.email
+          message: `Invoice sent successfully to ${clientEmail}`,
+          sentTo: clientEmail
         });
       } else {
-        res.status(500).json({ 
-          message: "Failed to send invoice email",
-          error: "Email delivery failed"
+        console.log(`📋 Invoice marked as sent (email not delivered - ${!clientEmail ? 'no email address' : 'email not configured'})`);
+        res.json({
+          success: true,
+          message: !clientEmail 
+            ? "Invoice marked as sent. Add a client email to enable email delivery." 
+            : "Invoice marked as sent. Configure email settings to enable automatic delivery.",
+          emailDelivered: false
         });
       }
     } catch (error) {
@@ -5147,6 +5154,29 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
       res.send(pdfBuffer);
     } catch (error) {
       console.error("Error generating proposal PDF:", error);
+      res.status(500).json({ error: "Failed to generate PDF" });
+    }
+  });
+
+  // Generate contract PDF
+  app.get("/api/contracts/:id/pdf", requireAuth, async (req, res) => {
+    try {
+      const contract = await storage.getContract(req.params.id);
+      if (!contract) {
+        return res.status(404).json({ error: "Contract not found" });
+      }
+
+      const pdfBuffer = await generateContractPDF({
+        ...contract,
+        clientName: contract.clientName || 'Valued Client',
+      });
+
+      const fileName = `contract-${contract.title?.replace(/[^a-zA-Z0-9]/g, '-') || 'document'}.pdf`;
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error("Error generating contract PDF:", error);
       res.status(500).json({ error: "Failed to generate PDF" });
     }
   });
