@@ -50,6 +50,7 @@ import {
   HelpCircle,
   Keyboard,
   X,
+  Rocket,
 } from 'lucide-react';
 
 interface NavigationSection {
@@ -121,7 +122,7 @@ const navigationSections: NavigationSection[] = [
       { id: 'bulk-operations', title: 'Bulk Operations', icon: Database, path: '/bulk-operations' },
       { id: 'templates', title: 'Templates', icon: FileText, path: '/templates' },
       { id: 'filing-cabinet', title: 'Filing Cabinet', icon: Archive, path: '/filing-cabinet' },
-      { id: 'startup-garage', title: 'Start-up Garage', icon: Briefcase, path: '/startup-garage' },
+      { id: 'startup-garage', title: 'Start-up Garage', icon: Rocket, path: '/startup-garage' },
     ],
   },
   {

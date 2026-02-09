@@ -1,8 +1,12 @@
-import type { Express } from "express";
+import { Router } from "express";
 import { z } from "zod";
 import { storage } from "../storage.js";
 import { StartupGarageService } from "../services/startupGarage.service.js";
-import { insertStartupGaragePlanSchema } from "../../shared/schema.js";
+import {
+  StartupGarageGenerateRequest,
+  StartupGarageModuleKey,
+  type StartupGarageModuleKey as StartupGarageModuleKeyT,
+} from "../../shared/contracts/startupGarage.js";
 
 const createPlanSchema = z.object({
   companyName: z.string().min(1),
@@ -39,12 +43,61 @@ function isPrivateUrl(urlStr: string): boolean {
   }
 }
 
-export function mountStartupGarageRoutes(app: Express, deps: {
-  requireAuth: any;
-}) {
+function normalizeServicePlan(intake: any) {
+  return {
+    companyName: intake.companyName,
+    websiteUrl: intake.websiteUrl,
+    industry: intake.industry,
+    businessType: intake.businessType,
+    businessDescription: intake.businessDescription,
+    stage: intake.stage,
+    primaryGoals: intake.primaryGoals ?? [],
+    personas: intake.personas ?? [],
+    competitors: intake.competitors ?? [],
+    socialPrMode: intake.socialPrMode,
+  };
+}
+
+type Deps = { requireAuth: any };
+
+export function startupGarageRoute(deps: Deps) {
+  const r = Router();
   const service = new StartupGarageService();
 
-  app.get("/api/startup-garage/plans", deps.requireAuth, async (req, res) => {
+  r.post("/generate", deps.requireAuth, async (req: any, res: any) => {
+    try {
+      const parsed = StartupGarageGenerateRequest.parse(req.body);
+      const intake = parsed.intake;
+      const plan = normalizeServicePlan(intake);
+
+      const modules = intake.modules.filter((m) =>
+        StartupGarageModuleKey.options.includes(m as any)
+      ) as StartupGarageModuleKeyT[];
+
+      if (modules.length === 0) {
+        return res.status(400).json({ message: "No valid modules selected" });
+      }
+
+      if (plan.websiteUrl && isPrivateUrl(plan.websiteUrl)) {
+        return res.status(400).json({ message: "Cannot audit private/internal URLs" });
+      }
+
+      const outputs: Record<string, any> = {};
+      for (const moduleKey of modules) {
+        outputs[moduleKey] = await service.generateModule(plan as any, moduleKey as any);
+      }
+
+      return res.json({ outputs });
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: err.errors });
+      }
+      console.error("[startupGarage] generate error", err);
+      return res.status(400).json({ message: err?.message || "Failed to generate Start-up Garage outputs" });
+    }
+  });
+
+  r.get("/plans", deps.requireAuth, async (req: any, res: any) => {
     try {
       const userId = req.session.user!.id;
       const plans = await storage.getStartupGaragePlans(userId);
@@ -54,7 +107,7 @@ export function mountStartupGarageRoutes(app: Express, deps: {
     }
   });
 
-  app.post("/api/startup-garage/plans", deps.requireAuth, async (req, res) => {
+  r.post("/plans", deps.requireAuth, async (req: any, res: any) => {
     try {
       const parsed = createPlanSchema.parse(req.body);
       const userId = req.session.user!.id;
@@ -73,7 +126,7 @@ export function mountStartupGarageRoutes(app: Express, deps: {
     }
   });
 
-  app.get("/api/startup-garage/plans/:id", deps.requireAuth, async (req, res) => {
+  r.get("/plans/:id", deps.requireAuth, async (req: any, res: any) => {
     try {
       const plan = await storage.getStartupGaragePlan(req.params.id);
       if (!plan) return res.status(404).json({ message: "Plan not found" });
@@ -89,7 +142,7 @@ export function mountStartupGarageRoutes(app: Express, deps: {
     }
   });
 
-  app.patch("/api/startup-garage/plans/:id", deps.requireAuth, async (req, res) => {
+  r.patch("/plans/:id", deps.requireAuth, async (req: any, res: any) => {
     try {
       const plan = await storage.getStartupGaragePlan(req.params.id);
       if (!plan) return res.status(404).json({ message: "Plan not found" });
@@ -104,7 +157,7 @@ export function mountStartupGarageRoutes(app: Express, deps: {
     }
   });
 
-  app.delete("/api/startup-garage/plans/:id", deps.requireAuth, async (req, res) => {
+  r.delete("/plans/:id", deps.requireAuth, async (req: any, res: any) => {
     try {
       const plan = await storage.getStartupGaragePlan(req.params.id);
       if (!plan) return res.status(404).json({ message: "Plan not found" });
@@ -119,7 +172,7 @@ export function mountStartupGarageRoutes(app: Express, deps: {
     }
   });
 
-  app.get("/api/startup-garage/plans/:id/outputs", deps.requireAuth, async (req, res) => {
+  r.get("/plans/:id/outputs", deps.requireAuth, async (req: any, res: any) => {
     try {
       const plan = await storage.getStartupGaragePlan(req.params.id);
       if (!plan) return res.status(404).json({ message: "Plan not found" });
@@ -134,7 +187,7 @@ export function mountStartupGarageRoutes(app: Express, deps: {
     }
   });
 
-  app.get("/api/startup-garage/plans/:id/outputs/:moduleKey", deps.requireAuth, async (req, res) => {
+  r.get("/plans/:id/outputs/:moduleKey", deps.requireAuth, async (req: any, res: any) => {
     try {
       const plan = await storage.getStartupGaragePlan(req.params.id);
       if (!plan) return res.status(404).json({ message: "Plan not found" });
@@ -150,7 +203,7 @@ export function mountStartupGarageRoutes(app: Express, deps: {
     }
   });
 
-  app.post("/api/startup-garage/plans/:id/generate", deps.requireAuth, async (req, res) => {
+  r.post("/plans/:id/generate", deps.requireAuth, async (req: any, res: any) => {
     try {
       const plan = await storage.getStartupGaragePlan(req.params.id);
       if (!plan) return res.status(404).json({ message: "Plan not found" });
@@ -159,8 +212,10 @@ export function mountStartupGarageRoutes(app: Express, deps: {
         return res.status(403).json({ message: "Forbidden" });
       }
 
-      const modules: string[] = req.body.modules || plan.deliverablesRequested || [];
-      if (modules.length === 0) {
+      const modules: string[] = (req.body.modules || plan.deliverablesRequested || []) as string[];
+      const validKeys = StartupGarageModuleKey.options as readonly string[];
+      const filteredModules = modules.filter((m) => validKeys.includes(m));
+      if (filteredModules.length === 0) {
         return res.status(400).json({ message: "No modules selected for generation" });
       }
 
@@ -168,15 +223,15 @@ export function mountStartupGarageRoutes(app: Express, deps: {
 
       const run = await storage.createStartupGarageRun({
         planId: plan.id,
-        requestedModules: modules,
+        requestedModules: filteredModules,
         modelInfo: { model: "gpt-4o", version: "latest" },
         status: "running",
       });
 
-      for (const moduleKey of modules) {
+      for (const moduleKey of filteredModules) {
         await storage.upsertStartupGarageOutput({
           planId: plan.id,
-          moduleKey,
+          moduleKey: moduleKey as any,
           status: "PENDING",
           content: null,
           sources: null,
@@ -184,16 +239,16 @@ export function mountStartupGarageRoutes(app: Express, deps: {
         });
       }
 
-      res.json({ runId: run.id, modules, status: "generating" });
+      res.json({ runId: run.id, modules: filteredModules, status: "generating" });
 
       (async () => {
         let allSuccess = true;
-        for (const moduleKey of modules) {
+        for (const moduleKey of filteredModules) {
           try {
             const content = await service.generateModule(plan, moduleKey);
             await storage.upsertStartupGarageOutput({
               planId: plan.id,
-              moduleKey,
+              moduleKey: moduleKey as any,
               status: "READY",
               content,
               sources: null,
@@ -203,7 +258,7 @@ export function mountStartupGarageRoutes(app: Express, deps: {
             allSuccess = false;
             await storage.upsertStartupGarageOutput({
               planId: plan.id,
-              moduleKey,
+              moduleKey: moduleKey as any,
               status: "ERROR",
               content: null,
               sources: null,
@@ -226,7 +281,7 @@ export function mountStartupGarageRoutes(app: Express, deps: {
     }
   });
 
-  app.post("/api/startup-garage/audit/website", deps.requireAuth, async (req, res) => {
+  r.post("/audit/website", deps.requireAuth, async (req: any, res: any) => {
     try {
       const { websiteUrl } = req.body;
       if (!websiteUrl) {
@@ -244,4 +299,6 @@ export function mountStartupGarageRoutes(app: Express, deps: {
       res.status(500).json({ message: e.message ?? "Website audit failed" });
     }
   });
+
+  return r;
 }
