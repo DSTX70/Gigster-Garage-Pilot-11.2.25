@@ -85,7 +85,7 @@ import GigsterCoachPage from "@/pages/gigster-coach";
 import GigsterCoachSuggestionsPage from "@/pages/gigster-coach-suggestions";
 import StartupGarageListPage from "@/pages/startup-garage-list";
 import StartupGarageNewPage from "@/pages/startup-garage-new";
-import StartupGaragePage from "@/pages/startup-garage";
+import StartupGaragePlanPage from "@/pages/startup-garage-plan";
 import SystemStatusPage from "@/pages/system-status";
 import { CommandPalette } from "@/components/CommandPalette";
 import { KeyboardShortcutsGuide } from "@/components/KeyboardShortcutsGuide";
@@ -198,7 +198,7 @@ function Router() {
       <Route path="/agency-hub" component={AgencyHub} />
       <Route path="/startup-garage" component={StartupGarageListPage} />
       <Route path="/startup-garage/new" component={StartupGarageNewPage} />
-      <Route path="/startup-garage/:planId" component={StartupGaragePage} />
+      <Route path="/startup-garage/:planId" component={StartupGaragePlanPage} />
       <Route path="/user-manual" component={UserManual} />
       <Route path="/bulk-operations" component={BulkOperations} />
       <Route path="/custom-fields" component={CustomFields} />
