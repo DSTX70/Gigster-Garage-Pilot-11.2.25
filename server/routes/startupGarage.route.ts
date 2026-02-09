@@ -1,311 +1,166 @@
 import { Router } from "express";
 import { z } from "zod";
-import { storage } from "../storage.js";
-import { StartupGarageService } from "../services/startupGarage.service.js";
 import {
-  StartupGarageIntake,
-  StartupGarageModuleKey,
   CreateStartupGaragePlanRequest,
+  CreateStartupGaragePlanResponse,
   GenerateStartupGarageOutputsRequest,
-  type StartupGarageModuleKey as StartupGarageModuleKeyT,
+  GenerateStartupGarageOutputsResponse,
+  GetStartupGaragePlanResponse,
+  ListStartupGaragePlansResponse,
+  ListStartupGarageOutputsResponse,
+  GetStartupGarageOutputResponse,
+  ListStartupGarageRunsResponse,
+  StartupGarageModuleKey,
 } from "../../shared/contracts/startupGarage.js";
 import { StartupGaragePlanService } from "../services/startupGaragePlan.service.js";
 
-const createPlanSchema = z.object({
-  companyName: z.string().min(1),
-  websiteUrl: z.string().url().optional().or(z.literal("")),
-  industry: z.string().min(1),
-  businessType: z.string().min(1),
-  businessDescription: z.string().min(1),
-  stage: z.enum(["idea", "pre_launch", "launched", "growth"]).optional(),
-  primaryGoals: z.array(z.string()).optional(),
-  personas: z.array(z.any()).optional(),
-  geoFocus: z.record(z.any()).optional(),
-  offer: z.record(z.any()).optional(),
-  channels: z.record(z.any()).optional(),
-  competitors: z.array(z.any()).optional(),
-  opsSourcing: z.record(z.any()).optional(),
-  deliverablesRequested: z.array(z.string()).optional(),
-  socialPrMode: z.enum(["LOCAL", "NATIONAL", "BOTH"]).optional(),
-  title: z.string().optional(),
-});
+type Deps = {
+  requireAuth: (req: any, res: any, next: any) => any;
+};
 
-function isPrivateUrl(urlStr: string): boolean {
-  try {
-    const parsed = new URL(urlStr);
-    if (!["http:", "https:"].includes(parsed.protocol)) return true;
-    const host = parsed.hostname.toLowerCase();
-    if (host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0" || host === "::1") return true;
-    if (host.startsWith("10.") || host.startsWith("192.168.")) return true;
-    if (/^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host)) return true;
-    if (host.endsWith(".local") || host.endsWith(".internal")) return true;
-    if (host.startsWith("169.254.")) return true;
-    return false;
-  } catch {
-    return true;
-  }
+function getUserId(req: any) {
+  return req?.user?.id || req?.session?.user?.id;
 }
-
-function normalizeServicePlan(intake: any) {
-  return {
-    companyName: intake.companyName,
-    websiteUrl: intake.websiteUrl,
-    industry: intake.industry,
-    businessType: intake.businessType,
-    businessDescription: intake.businessDescription,
-    stage: intake.stage,
-    primaryGoals: intake.primaryGoals ?? [],
-    personas: intake.personas ?? [],
-    competitors: intake.competitors ?? [],
-    socialPrMode: intake.socialPrMode,
-  };
-}
-
-type Deps = { requireAuth: any };
 
 export function startupGarageRoute(deps: Deps) {
   const r = Router();
-  const service = new StartupGarageService();
+  const svc = new StartupGaragePlanService();
 
-  const StatelessGenerateRequest = z.object({
-    intake: StartupGarageIntake.extend({
-      modules: z.array(StartupGarageModuleKey).min(1),
-    }),
-  });
-
-  r.post("/generate", deps.requireAuth, async (req: any, res: any) => {
+  r.post("/plans", deps.requireAuth, async (req, res) => {
     try {
-      const parsed = StatelessGenerateRequest.parse(req.body);
-      const intake = parsed.intake;
-      const plan = normalizeServicePlan(intake);
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-      const modules = (intake as any).modules.filter((m: string) =>
-        StartupGarageModuleKey.options.includes(m as any)
-      ) as StartupGarageModuleKeyT[];
+      const parsed = CreateStartupGaragePlanRequest.parse(req.body);
+      const { planId } = await svc.createPlan(userId, parsed.intake);
 
-      if (modules.length === 0) {
-        return res.status(400).json({ message: "No valid modules selected" });
-      }
-
-      if (plan.websiteUrl && isPrivateUrl(plan.websiteUrl)) {
-        return res.status(400).json({ message: "Cannot audit private/internal URLs" });
-      }
-
-      const outputs: Record<string, any> = {};
-      for (const moduleKey of modules) {
-        outputs[moduleKey] = await service.generateModule(plan as any, moduleKey as any);
-      }
-
-      return res.json({ outputs });
+      return res.json(CreateStartupGaragePlanResponse.parse({ planId }));
     } catch (err: any) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: err.errors });
-      }
-      console.error("[startupGarage] generate error", err);
-      return res.status(400).json({ message: err?.message || "Failed to generate Start-up Garage outputs" });
+      console.error("[startupGarage] create plan error", err);
+      return res.status(400).json({ message: err?.message || "Failed to create plan" });
     }
   });
 
-  r.get("/plans", deps.requireAuth, async (req: any, res: any) => {
+  r.get("/plans", deps.requireAuth, async (req, res) => {
     try {
-      const userId = req.session.user!.id;
-      const plans = await storage.getStartupGaragePlans(userId);
-      res.json(plans);
-    } catch (e: any) {
-      res.status(500).json({ message: e.message ?? "Failed to fetch plans" });
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+      const plans = await svc.listPlans(userId);
+      return res.json(ListStartupGaragePlansResponse.parse({ plans }));
+    } catch (err: any) {
+      console.error("[startupGarage] list plans error", err);
+      return res.status(400).json({ message: err?.message || "Failed to list plans" });
     }
   });
 
-  r.post("/plans", deps.requireAuth, async (req: any, res: any) => {
+  r.get("/plans/:planId", deps.requireAuth, async (req, res) => {
     try {
-      const parsed = createPlanSchema.parse(req.body);
-      const userId = req.session.user!.id;
-      const data = {
-        ...parsed,
-        userId,
-        title: parsed.title || `${parsed.companyName} — Start-up Garage Plan`,
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+      const planId = String(req.params.planId);
+      const plan = await svc.getPlanOrThrow(userId, planId);
+
+      const intake = {
+        companyName: (plan as any).companyName,
+        websiteUrl: (plan as any).websiteUrl ?? undefined,
+        industry: (plan as any).industry,
+        businessType: (plan as any).businessType,
+        businessDescription: (plan as any).businessDescription,
+        stage: (plan as any).stage ?? undefined,
+        primaryGoals: (plan as any).primaryGoals ?? [],
+        personas: (plan as any).personas ?? [],
+        competitors: (plan as any).competitors ?? [],
+        socialPrMode: (plan as any).socialPrMode ?? "BOTH",
       };
-      const plan = await storage.createStartupGaragePlan(data);
-      res.json(plan);
-    } catch (e: any) {
-      if (e instanceof z.ZodError) {
-        return res.status(400).json({ message: "Validation error", errors: e.errors });
-      }
-      res.status(400).json({ message: e.message ?? "Failed to create plan" });
-    }
-  });
 
-  r.get("/plans/:id", deps.requireAuth, async (req: any, res: any) => {
-    try {
-      const plan = await storage.getStartupGaragePlan(req.params.id);
-      if (!plan) return res.status(404).json({ message: "Plan not found" });
-      const userId = req.session.user!.id;
-      const isAdmin = req.session.user!.role === "admin";
-      if (plan.userId !== userId && !isAdmin) {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-      const outputs = await storage.getStartupGarageOutputs(plan.id);
-      res.json({ ...plan, outputs });
-    } catch (e: any) {
-      res.status(500).json({ message: e.message ?? "Failed to fetch plan" });
-    }
-  });
-
-  r.patch("/plans/:id", deps.requireAuth, async (req: any, res: any) => {
-    try {
-      const plan = await storage.getStartupGaragePlan(req.params.id);
-      if (!plan) return res.status(404).json({ message: "Plan not found" });
-      const userId = req.session.user!.id;
-      if (plan.userId !== userId && req.session.user!.role !== "admin") {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-      const updated = await storage.updateStartupGaragePlan(plan.id, req.body);
-      res.json(updated);
-    } catch (e: any) {
-      res.status(400).json({ message: e.message ?? "Failed to update plan" });
-    }
-  });
-
-  r.delete("/plans/:id", deps.requireAuth, async (req: any, res: any) => {
-    try {
-      const plan = await storage.getStartupGaragePlan(req.params.id);
-      if (!plan) return res.status(404).json({ message: "Plan not found" });
-      const userId = req.session.user!.id;
-      if (plan.userId !== userId && req.session.user!.role !== "admin") {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-      await storage.deleteStartupGaragePlan(plan.id);
-      res.json({ success: true });
-    } catch (e: any) {
-      res.status(500).json({ message: e.message ?? "Failed to delete plan" });
-    }
-  });
-
-  r.get("/plans/:id/outputs", deps.requireAuth, async (req: any, res: any) => {
-    try {
-      const plan = await storage.getStartupGaragePlan(req.params.id);
-      if (!plan) return res.status(404).json({ message: "Plan not found" });
-      const userId = req.session.user!.id;
-      if (plan.userId !== userId && req.session.user!.role !== "admin") {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-      const outputs = await storage.getStartupGarageOutputs(plan.id);
-      res.json(outputs);
-    } catch (e: any) {
-      res.status(500).json({ message: e.message ?? "Failed to fetch outputs" });
-    }
-  });
-
-  r.get("/plans/:id/outputs/:moduleKey", deps.requireAuth, async (req: any, res: any) => {
-    try {
-      const plan = await storage.getStartupGaragePlan(req.params.id);
-      if (!plan) return res.status(404).json({ message: "Plan not found" });
-      const userId = req.session.user!.id;
-      if (plan.userId !== userId && req.session.user!.role !== "admin") {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-      const output = await storage.getStartupGarageOutput(plan.id, req.params.moduleKey);
-      if (!output) return res.status(404).json({ message: "Output not found" });
-      res.json(output);
-    } catch (e: any) {
-      res.status(500).json({ message: e.message ?? "Failed to fetch output" });
-    }
-  });
-
-  r.post("/plans/:id/generate", deps.requireAuth, async (req: any, res: any) => {
-    try {
-      const plan = await storage.getStartupGaragePlan(req.params.id);
-      if (!plan) return res.status(404).json({ message: "Plan not found" });
-      const userId = req.session.user!.id;
-      if (plan.userId !== userId && req.session.user!.role !== "admin") {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-
-      const modules: string[] = (req.body.modules || plan.deliverablesRequested || []) as string[];
-      const validKeys = StartupGarageModuleKey.options as readonly string[];
-      const filteredModules = modules.filter((m) => validKeys.includes(m));
-      if (filteredModules.length === 0) {
-        return res.status(400).json({ message: "No modules selected for generation" });
-      }
-
-      await storage.updateStartupGaragePlan(plan.id, { status: "generating" } as any);
-
-      const run = await storage.createStartupGarageRun({
-        planId: plan.id,
-        requestedModules: filteredModules,
-        modelInfo: { model: "gpt-4o", version: "latest" },
-        status: "running",
-      });
-
-      for (const moduleKey of filteredModules) {
-        await storage.upsertStartupGarageOutput({
-          planId: plan.id,
-          moduleKey: moduleKey as any,
-          status: "PENDING",
-          content: null,
-          sources: null,
-          errorMessage: null,
-        });
-      }
-
-      res.json({ runId: run.id, modules: filteredModules, status: "generating" });
-
-      (async () => {
-        let allSuccess = true;
-        for (const moduleKey of filteredModules) {
-          try {
-            const content = await service.generateModule(plan, moduleKey);
-            await storage.upsertStartupGarageOutput({
-              planId: plan.id,
-              moduleKey: moduleKey as any,
-              status: "READY",
-              content,
-              sources: null,
-              errorMessage: null,
-            });
-          } catch (err: any) {
-            allSuccess = false;
-            await storage.upsertStartupGarageOutput({
-              planId: plan.id,
-              moduleKey: moduleKey as any,
-              status: "ERROR",
-              content: null,
-              sources: null,
-              errorMessage: err.message ?? "Generation failed",
-            });
-          }
-        }
-
-        await storage.updateStartupGarageRun(run.id, {
-          status: allSuccess ? "completed" : "failed",
-          finishedAt: new Date(),
-        } as any);
-
-        await storage.updateStartupGaragePlan(plan.id, {
-          status: allSuccess ? "complete" : "error",
-        } as any);
-      })().catch(console.error);
-    } catch (e: any) {
-      res.status(500).json({ message: e.message ?? "Failed to start generation" });
-    }
-  });
-
-  r.post("/audit/website", deps.requireAuth, async (req: any, res: any) => {
-    try {
-      const { websiteUrl } = req.body;
-      if (!websiteUrl) {
-        return res.status(400).json({ message: "websiteUrl is required" });
-      }
-      if (isPrivateUrl(websiteUrl)) {
-        return res.status(400).json({ message: "Cannot audit private/internal URLs" });
-      }
-      const result = await service.generateModule(
-        { websiteUrl, companyName: "Ad-hoc Audit", businessDescription: "", industry: "", businessType: "" },
-        "WEBSITE_AUDIT"
+      return res.json(
+        GetStartupGaragePlanResponse.parse({
+          plan: {
+            id: (plan as any).id,
+            userId: (plan as any).userId,
+            title: (plan as any).title,
+            status: (plan as any).status,
+            intake,
+            createdAt: (plan as any).createdAt,
+            updatedAt: (plan as any).updatedAt,
+          },
+        })
       );
-      res.json(result);
-    } catch (e: any) {
-      res.status(500).json({ message: e.message ?? "Website audit failed" });
+    } catch (err: any) {
+      console.error("[startupGarage] get plan error", err);
+      return res.status(404).json({ message: err?.message || "Plan not found" });
+    }
+  });
+
+  r.post("/plans/:planId/generate", deps.requireAuth, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+      const planId = String(req.params.planId);
+      const parsed = GenerateStartupGarageOutputsRequest.parse(req.body);
+
+      const modules = parsed.modules.filter((m) => StartupGarageModuleKey.options.includes(m as any));
+
+      const result = await svc.generateModules(userId, planId, modules as any);
+
+      return res.json(
+        GenerateStartupGarageOutputsResponse.parse({
+          runId: result.runId,
+          outputs: result.outputs,
+        })
+      );
+    } catch (err: any) {
+      console.error("[startupGarage] generate error", err);
+      return res.status(400).json({ message: err?.message || "Failed to generate outputs" });
+    }
+  });
+
+  r.get("/plans/:planId/outputs", deps.requireAuth, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+      const planId = String(req.params.planId);
+      const outputs = await svc.listOutputs(userId, planId);
+
+      return res.json(ListStartupGarageOutputsResponse.parse({ outputs }));
+    } catch (err: any) {
+      console.error("[startupGarage] list outputs error", err);
+      return res.status(400).json({ message: err?.message || "Failed to list outputs" });
+    }
+  });
+
+  r.get("/plans/:planId/outputs/:moduleKey", deps.requireAuth, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+      const planId = String(req.params.planId);
+      const moduleKey = StartupGarageModuleKey.parse(String(req.params.moduleKey));
+
+      const output = await svc.getOutputOrThrow(userId, planId, moduleKey as any);
+      return res.json(GetStartupGarageOutputResponse.parse({ output }));
+    } catch (err: any) {
+      console.error("[startupGarage] get output error", err);
+      return res.status(404).json({ message: err?.message || "Output not found" });
+    }
+  });
+
+  r.get("/plans/:planId/runs", deps.requireAuth, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+      const planId = String(req.params.planId);
+      const runs = await svc.listRuns(userId, planId);
+
+      return res.json(ListStartupGarageRunsResponse.parse({ runs }));
+    } catch (err: any) {
+      console.error("[startupGarage] list runs error", err);
+      return res.status(400).json({ message: err?.message || "Failed to list runs" });
     }
   });
 
