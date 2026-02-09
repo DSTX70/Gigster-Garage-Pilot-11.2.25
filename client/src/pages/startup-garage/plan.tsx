@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useParams, Link } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getPlan, generate, listOutputs, listRuns } from "@/lib/startup-garage/api";
-import { StartupGarageModuleKey } from "../../../shared/contracts/startupGarage";
+import { StartupGarageModuleKey } from "../../../../shared/contracts/startupGarage";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

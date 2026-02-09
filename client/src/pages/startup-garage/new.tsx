@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { createPlan } from "@/lib/startup-garage/api";
-import { SocialPrMode } from "../../../shared/contracts/startupGarage";
+import { SocialPrMode } from "../../../../shared/contracts/startupGarage";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
