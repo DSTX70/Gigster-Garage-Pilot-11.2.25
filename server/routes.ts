@@ -4441,6 +4441,73 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
     }
   });
 
+  // Update document file content
+  app.put("/api/documents/:id/content", requireAuth, async (req, res) => {
+    try {
+      const document = await storage.getClientDocument(req.params.id);
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+
+      const userId = req.session.user!.id;
+      const isAdmin = req.session.user!.role === 'admin';
+      if (document.uploaded_by_id !== userId && !isAdmin) {
+        return res.status(403).json({ message: "You do not have permission to edit this document" });
+      }
+
+      const { content } = req.body;
+      if (content === undefined || content === null) {
+        return res.status(400).json({ message: "Content is required" });
+      }
+
+      const MAX_CONTENT_SIZE = 10 * 1024 * 1024; // 10MB
+      if (typeof content === 'string' && content.length > MAX_CONTENT_SIZE) {
+        return res.status(413).json({ message: "Content too large. Maximum size is 10MB." });
+      }
+
+      const objectStorageService = new ObjectStorageService();
+      const fileBuffer = Buffer.from(content, 'utf-8');
+
+      if (document.file_url) {
+        let objectKey = document.file_url;
+        if (objectKey.startsWith('/api/objects/')) {
+          objectKey = objectKey.replace('/api/objects/', '');
+        } else if (objectKey.startsWith('/storage/')) {
+          objectKey = objectKey.replace('/storage/', '');
+        } else if (objectKey.startsWith('/objects/')) {
+          objectKey = objectKey.replace('/objects/', '');
+        }
+
+        await objectStorageService.put(objectKey, fileBuffer, {
+          contentType: document.mime_type || 'text/plain'
+        });
+      } else {
+        const userId = req.session.user!.id;
+        const safeName = (document.file_name || document.name || 'document').replace(/[^a-zA-Z0-9.-]/g, '-');
+        const objectKey = `${userId}/filing-cabinet/${Date.now()}-${safeName}`;
+        await objectStorageService.put(objectKey, fileBuffer, {
+          contentType: document.mime_type || 'text/plain'
+        });
+        const fileUrl = `/api/objects/${objectKey}`;
+        await storage.updateClientDocument(req.params.id, { file_url: fileUrl });
+      }
+
+      const fileSize = fileBuffer.length;
+      const currentVersion = document.version || 1;
+      const updated = await storage.updateClientDocument(req.params.id, {
+        file_size: fileSize,
+        version: currentVersion + 1,
+        updated_at: new Date()
+      });
+
+      console.log(`✏️ Document content updated: ${document.name} (${fileSize} bytes, v${currentVersion + 1})`);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating document content:", error);
+      res.status(500).json({ message: "Failed to update document content" });
+    }
+  });
+
   // Delete document
   app.delete("/api/documents/:id", requireAuth, async (req, res) => {
     try {

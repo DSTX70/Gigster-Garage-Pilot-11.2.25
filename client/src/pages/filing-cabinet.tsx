@@ -13,7 +13,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
-import { FolderOpen, FileText, File, Download, Search, Calendar, User, Building, Filter, ArrowLeft, Grid, List, MoreVertical, Edit2, Trash2, Tag, Folder, Settings, Menu, Archive, Star, Eye, EyeOff, FilterX, Zap, ExternalLink } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { FolderOpen, FileText, File, Download, Search, Calendar, User, Building, Filter, ArrowLeft, Grid, List, MoreVertical, Edit2, Trash2, Tag, Folder, Settings, Menu, Archive, Star, Eye, EyeOff, FilterX, Zap, ExternalLink, Save, Pencil, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -100,6 +101,10 @@ export default function FilingCabinet() {
   const [previewDocument, setPreviewDocument] = useState<DocumentSearchResult | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [contentEditorDoc, setContentEditorDoc] = useState<DocumentSearchResult | null>(null);
+  const [contentEditorText, setContentEditorText] = useState<string>('');
+  const [contentEditorLoading, setContentEditorLoading] = useState(false);
+  const [contentEditorSaving, setContentEditorSaving] = useState(false);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -304,6 +309,63 @@ export default function FilingCabinet() {
 
   const handleEditDocument = (document: DocumentSearchResult) => {
     setEditingDocument(document);
+  };
+
+  const isContentEditable = (document: DocumentSearchResult): boolean => {
+    const mime = document.mimeType || '';
+    return mime.startsWith('text/') || 
+           mime === 'application/json' || 
+           mime === 'application/javascript' ||
+           mime === 'application/xml' ||
+           mime === 'application/x-yaml';
+  };
+
+  const handleOpenContentEditor = async (document: DocumentSearchResult) => {
+    setContentEditorDoc(document);
+    setContentEditorText('');
+    setContentEditorLoading(true);
+
+    if (document.fileUrl) {
+      try {
+        const response = await fetch(document.fileUrl, { credentials: 'include' });
+        if (response.ok) {
+          const text = await response.text();
+          setContentEditorText(text);
+        } else {
+          setContentEditorText('');
+          toast({
+            title: "Could not load file",
+            description: "The file content could not be loaded. You can still write new content.",
+            variant: "destructive"
+          });
+        }
+      } catch {
+        setContentEditorText('');
+      }
+    }
+    setContentEditorLoading(false);
+  };
+
+  const handleSaveContent = async () => {
+    if (!contentEditorDoc) return;
+    setContentEditorSaving(true);
+    try {
+      const response = await fetch(`/api/documents/${contentEditorDoc.id}/content`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ content: contentEditorText })
+      });
+      if (!response.ok) throw new Error('Save failed');
+      queryClient.invalidateQueries({ queryKey: ["/api/client-documents"] });
+      refresh();
+      toast({ title: "Document saved", description: `${contentEditorDoc.name} has been updated.` });
+      setContentEditorDoc(null);
+    } catch {
+      toast({ title: "Save failed", description: "Could not save the document. Please try again.", variant: "destructive" });
+    } finally {
+      setContentEditorSaving(false);
+    }
   };
 
   const getEditorRoute = (document: DocumentSearchResult): string | null => {
@@ -545,6 +607,27 @@ export default function FilingCabinet() {
               <p>v{document.version}</p>
             </div>
             
+            {isContentEditable(document) ? (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => handleOpenContentEditor(document)}
+                data-testid={`button-edit-content-${document.id}`}
+              >
+                <Pencil className="h-4 w-4 mr-1" />
+                Edit
+              </Button>
+            ) : canOpenInEditor(document) ? (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => handleOpenInEditor(document)}
+                data-testid={`button-open-editor-${document.id}`}
+              >
+                <ExternalLink className="h-4 w-4 mr-1" />
+                Edit
+              </Button>
+            ) : null}
             <Button 
               variant="outline" 
               size="sm"
@@ -567,6 +650,12 @@ export default function FilingCabinet() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                {isContentEditable(document) && (
+                  <DropdownMenuItem onClick={() => handleOpenContentEditor(document)}>
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Edit Content
+                  </DropdownMenuItem>
+                )}
                 {canOpenInEditor(document) && (
                   <DropdownMenuItem onClick={() => handleOpenInEditor(document)}>
                     <ExternalLink className="h-4 w-4 mr-2" />
@@ -575,7 +664,7 @@ export default function FilingCabinet() {
                 )}
                 <DropdownMenuItem onClick={() => setEditingDocument(document)}>
                   <Edit2 className="h-4 w-4 mr-2" />
-                  {t('editProperties') || t('edit')}
+                  Edit Properties
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handlePreviewDocument(document)}>
                   <Eye className="h-4 w-4 mr-2" />
@@ -1095,13 +1184,18 @@ export default function FilingCabinet() {
                   {previewDocument.fileSize && <span>{formatFileSize(previewDocument.fileSize)}</span>}
                 </div>
                 <div className="flex gap-2">
-                  {canOpenInEditor(previewDocument) && (
-                    <Button size="sm" variant="outline" onClick={() => { setPreviewDocument(null); handleOpenInEditor(previewDocument); }} data-testid="button-preview-open-editor">
-                      <ExternalLink className="h-4 w-4 mr-1" />
-                      Open in Editor
+                  {isContentEditable(previewDocument) ? (
+                    <Button size="sm" variant="default" onClick={() => { setPreviewDocument(null); if (previewUrl) { URL.revokeObjectURL(previewUrl); setPreviewUrl(null); } handleOpenContentEditor(previewDocument); }} data-testid="button-preview-edit-content">
+                      <Pencil className="h-4 w-4 mr-1" />
+                      Edit
                     </Button>
-                  )}
-                  <Button size="sm" onClick={() => handleDownloadDocument(previewDocument)} data-testid="button-preview-download">
+                  ) : canOpenInEditor(previewDocument) ? (
+                    <Button size="sm" variant="default" onClick={() => { setPreviewDocument(null); handleOpenInEditor(previewDocument); }} data-testid="button-preview-open-editor">
+                      <ExternalLink className="h-4 w-4 mr-1" />
+                      Edit
+                    </Button>
+                  ) : null}
+                  <Button size="sm" variant="outline" onClick={() => handleDownloadDocument(previewDocument)} data-testid="button-preview-download">
                     <Download className="h-4 w-4 mr-1" />
                     {t('download')}
                   </Button>
@@ -1136,6 +1230,71 @@ export default function FilingCabinet() {
               {previewDocument.description && (
                 <p className="text-sm text-gray-600">{previewDocument.description}</p>
               )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Content Editor Dialog */}
+      <Dialog open={!!contentEditorDoc} onOpenChange={(open) => { if (!open) setContentEditorDoc(null); }}>
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col" data-testid="dialog-content-editor">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-5 w-5" />
+              Edit: {contentEditorDoc?.name || 'Document'}
+            </DialogTitle>
+          </DialogHeader>
+          {contentEditorDoc && (
+            <div className="flex flex-col gap-4 flex-1 min-h-0">
+              <div className="flex items-center justify-between text-sm text-gray-600">
+                <div className="flex items-center gap-3">
+                  <Badge variant="outline">{contentEditorDoc.mimeType || 'text/plain'}</Badge>
+                  {contentEditorDoc.fileName && <span>{contentEditorDoc.fileName}</span>}
+                </div>
+                <span className="text-xs text-gray-400">
+                  {contentEditorText.length.toLocaleString()} characters
+                </span>
+              </div>
+              {contentEditorLoading ? (
+                <div className="flex items-center justify-center p-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                  <span className="ml-3 text-gray-500">Loading document...</span>
+                </div>
+              ) : (
+                <Textarea
+                  value={contentEditorText}
+                  onChange={(e) => setContentEditorText(e.target.value)}
+                  className="flex-1 min-h-[400px] max-h-[60vh] font-mono text-sm resize-none"
+                  placeholder="Enter document content..."
+                  data-testid="textarea-content-editor"
+                />
+              )}
+              <div className="flex items-center justify-between pt-2 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => setContentEditorDoc(null)}
+                  data-testid="button-cancel-content-edit"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSaveContent}
+                  disabled={contentEditorSaving || contentEditorLoading}
+                  data-testid="button-save-content"
+                >
+                  {contentEditorSaving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      Save Document
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>
