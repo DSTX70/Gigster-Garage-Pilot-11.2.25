@@ -3,10 +3,13 @@ import { z } from "zod";
 import { storage } from "../storage.js";
 import { StartupGarageService } from "../services/startupGarage.service.js";
 import {
-  StartupGarageGenerateRequest,
+  StartupGarageIntake,
   StartupGarageModuleKey,
+  CreateStartupGaragePlanRequest,
+  GenerateStartupGarageOutputsRequest,
   type StartupGarageModuleKey as StartupGarageModuleKeyT,
 } from "../../shared/contracts/startupGarage.js";
+import { StartupGaragePlanService } from "../services/startupGaragePlan.service.js";
 
 const createPlanSchema = z.object({
   companyName: z.string().min(1),
@@ -64,13 +67,19 @@ export function startupGarageRoute(deps: Deps) {
   const r = Router();
   const service = new StartupGarageService();
 
+  const StatelessGenerateRequest = z.object({
+    intake: StartupGarageIntake.extend({
+      modules: z.array(StartupGarageModuleKey).min(1),
+    }),
+  });
+
   r.post("/generate", deps.requireAuth, async (req: any, res: any) => {
     try {
-      const parsed = StartupGarageGenerateRequest.parse(req.body);
+      const parsed = StatelessGenerateRequest.parse(req.body);
       const intake = parsed.intake;
       const plan = normalizeServicePlan(intake);
 
-      const modules = intake.modules.filter((m) =>
+      const modules = (intake as any).modules.filter((m: string) =>
         StartupGarageModuleKey.options.includes(m as any)
       ) as StartupGarageModuleKeyT[];
 

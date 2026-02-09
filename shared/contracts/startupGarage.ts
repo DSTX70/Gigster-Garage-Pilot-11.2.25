@@ -35,7 +35,11 @@ export const StartupGarageCompetitor = z.object({
 
 export const StartupGarageIntake = z.object({
   companyName: z.string().min(1).max(120),
-  websiteUrl: z.string().url().optional().or(z.literal("")).transform(v => (v ? v : undefined)),
+  websiteUrl: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => (v ? v : undefined)),
   industry: z.string().min(1).max(120),
   businessType: z.string().min(1).max(120),
   businessDescription: z.string().min(1).max(4000),
@@ -44,23 +48,94 @@ export const StartupGarageIntake = z.object({
   primaryGoals: z.array(z.string()).default([]),
 
   personas: z.array(StartupGaragePersona).default([]),
-
   competitors: z.array(StartupGarageCompetitor).default([]),
 
   socialPrMode: SocialPrMode.default("BOTH"),
-
-  modules: z.array(StartupGarageModuleKey).min(1),
 });
 
 export type StartupGarageIntake = z.infer<typeof StartupGarageIntake>;
 
-export const StartupGarageGenerateRequest = z.object({
+export const StartupGaragePlanStatus = z.enum(["draft", "generating", "complete", "error"]);
+export type StartupGaragePlanStatus = z.infer<typeof StartupGaragePlanStatus>;
+
+export const StartupGaragePlan = z.object({
+  id: z.string(),
+  userId: z.string(),
+  title: z.string().optional().nullable(),
+  status: StartupGaragePlanStatus,
+  intake: StartupGarageIntake,
+  createdAt: z.string().or(z.date() as any),
+  updatedAt: z.string().or(z.date() as any),
+});
+
+export const StartupGarageOutputStatus = z.enum(["PENDING", "READY", "ERROR"]);
+export type StartupGarageOutputStatus = z.infer<typeof StartupGarageOutputStatus>;
+
+export const StartupGarageOutput = z.object({
+  id: z.string(),
+  planId: z.string(),
+  moduleKey: StartupGarageModuleKey,
+  status: StartupGarageOutputStatus,
+  content: z.any().optional().nullable(),
+  errorMessage: z.string().optional().nullable(),
+  createdAt: z.string().or(z.date() as any).optional(),
+  updatedAt: z.string().or(z.date() as any).optional(),
+});
+
+export const StartupGarageRunStatus = z.enum(["running", "completed", "failed"]);
+export type StartupGarageRunStatus = z.infer<typeof StartupGarageRunStatus>;
+
+export const StartupGarageRun = z.object({
+  id: z.string(),
+  planId: z.string(),
+  requestedModules: z.array(StartupGarageModuleKey),
+  modelInfo: z.any().optional().nullable(),
+  status: StartupGarageRunStatus,
+  startedAt: z.string().or(z.date() as any).optional(),
+  finishedAt: z.string().or(z.date() as any).optional(),
+});
+
+export const CreateStartupGaragePlanRequest = z.object({
   intake: StartupGarageIntake,
 });
-
-export const StartupGarageGenerateResponse = z.object({
-  outputs: z.record(z.string(), z.any()),
+export const CreateStartupGaragePlanResponse = z.object({
+  planId: z.string(),
 });
 
-export type StartupGarageGenerateRequest = z.infer<typeof StartupGarageGenerateRequest>;
-export type StartupGarageGenerateResponse = z.infer<typeof StartupGarageGenerateResponse>;
+export const ListStartupGaragePlansResponse = z.object({
+  plans: z.array(
+    z.object({
+      id: z.string(),
+      title: z.string().optional().nullable(),
+      companyName: z.string(),
+      industry: z.string(),
+      businessType: z.string(),
+      status: StartupGaragePlanStatus,
+      updatedAt: z.string().or(z.date() as any),
+      createdAt: z.string().or(z.date() as any),
+    })
+  ),
+});
+
+export const GetStartupGaragePlanResponse = z.object({
+  plan: StartupGaragePlan,
+});
+
+export const GenerateStartupGarageOutputsRequest = z.object({
+  modules: z.array(StartupGarageModuleKey).min(1),
+});
+export const GenerateStartupGarageOutputsResponse = z.object({
+  runId: z.string(),
+  outputs: z.array(StartupGarageOutput),
+});
+
+export const ListStartupGarageOutputsResponse = z.object({
+  outputs: z.array(StartupGarageOutput),
+});
+export const GetStartupGarageOutputResponse = z.object({
+  output: StartupGarageOutput,
+});
+
+export const ListStartupGarageRunsResponse = z.object({
+  runs: z.array(StartupGarageRun),
+});
