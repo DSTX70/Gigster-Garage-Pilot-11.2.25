@@ -62,6 +62,7 @@ import platformCredentialsRoutes from './routes/platformCredentials';
 import loyaltyRoutes from './routes/loyalty.route.js';
 import monitoringRoutes from './routes/monitoring.route.js';
 import { mountGigsterCoachRoutes } from './routes/gigsterCoach.route.js';
+import { mountStartupGarageRoutes } from './routes/startupGarage.route.js';
 import { registerI3DropReceiver } from './routes/i3_drop_receiver';
 import { registerDthReadonlyRoutes } from './routes_dth_readonly';
 import { registerAuditRoutes } from './routes/audit.route.js';
@@ -1004,6 +1005,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount GigsterCoach routes
   mountGigsterCoachRoutes(app, { requireAuth, requirePlan });
+
+  // Mount Start-up Garage routes
+  mountStartupGarageRoutes(app, { requireAuth });
 
   // Error tracking endpoints for audit purposes (after session middleware)
   app.get('/api/_audit/errors/top', requireAdmin, (req, res) => {

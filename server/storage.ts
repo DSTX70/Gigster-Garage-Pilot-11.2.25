@@ -1,8 +1,8 @@
 import { eq, and, or, desc, gte, lte, isNull, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { db } from "./db";
-import { users, tasks, projects, taskDependencies, templates, proposals, clients, clientDocuments, invoices, payments, contracts, presentations, timeLogs, messages, customFieldDefinitions, customFieldValues, workflowRules, workflowExecutions, comments, activities, apiKeys, apiUsage, fileAttachments, documentVersions, agents, agentVisibilityFlags, agentGraduationPlans, agentKpis } from "@shared/schema";
-import type { User, UpsertUser, Task, InsertTask, Project, InsertProject, TaskDependency, InsertTaskDependency, Template, InsertTemplate, Proposal, InsertProposal, Client, InsertClient, ClientDocument, InsertClientDocument, Invoice, InsertInvoice, Payment, InsertPayment, Contract, InsertContract, Presentation, InsertPresentation, TimeLog, InsertTimeLog, UpdateTask, UpdateTemplate, UpdateProposal, UpdateTimeLog, TaskWithRelations, TemplateWithRelations, ProposalWithRelations, TimeLogWithRelations, Message, InsertMessage, MessageWithRelations, CustomFieldDefinition, InsertCustomFieldDefinition, CustomFieldValue, InsertCustomFieldValue, WorkflowRule, InsertWorkflowRule, WorkflowExecution, InsertWorkflowExecution, Comment, InsertComment, Activity, InsertActivity, ApiKey, InsertApiKey, ApiUsage, InsertApiUsage, FileAttachment, InsertFileAttachment, DocumentVersion, InsertDocumentVersion, Agent, InsertAgent, AgentVisibilityFlag, InsertAgentVisibilityFlag, AgentGraduationPlan, InsertAgentGraduationPlan, AgentKpi, InsertAgentKpi } from "@shared/schema";
+import { users, tasks, projects, taskDependencies, templates, proposals, clients, clientDocuments, invoices, payments, contracts, presentations, timeLogs, messages, customFieldDefinitions, customFieldValues, workflowRules, workflowExecutions, comments, activities, apiKeys, apiUsage, fileAttachments, documentVersions, agents, agentVisibilityFlags, agentGraduationPlans, agentKpis, startupGaragePlans, startupGarageOutputs, startupGarageRuns } from "@shared/schema";
+import type { User, UpsertUser, Task, InsertTask, Project, InsertProject, TaskDependency, InsertTaskDependency, Template, InsertTemplate, Proposal, InsertProposal, Client, InsertClient, ClientDocument, InsertClientDocument, Invoice, InsertInvoice, Payment, InsertPayment, Contract, InsertContract, Presentation, InsertPresentation, TimeLog, InsertTimeLog, UpdateTask, UpdateTemplate, UpdateProposal, UpdateTimeLog, TaskWithRelations, TemplateWithRelations, ProposalWithRelations, TimeLogWithRelations, Message, InsertMessage, MessageWithRelations, CustomFieldDefinition, InsertCustomFieldDefinition, CustomFieldValue, InsertCustomFieldValue, WorkflowRule, InsertWorkflowRule, WorkflowExecution, InsertWorkflowExecution, Comment, InsertComment, Activity, InsertActivity, ApiKey, InsertApiKey, ApiUsage, InsertApiUsage, FileAttachment, InsertFileAttachment, DocumentVersion, InsertDocumentVersion, Agent, InsertAgent, AgentVisibilityFlag, InsertAgentVisibilityFlag, AgentGraduationPlan, InsertAgentGraduationPlan, AgentKpi, InsertAgentKpi, StartupGaragePlan, InsertStartupGaragePlan, StartupGarageOutput, InsertStartupGarageOutput, StartupGarageRun, InsertStartupGarageRun } from "@shared/schema";
 
 // Advanced search types for client documents
 export interface DocumentSearchParams {
@@ -2797,6 +2797,75 @@ export class DatabaseStorage implements IStorage {
       .delete(agentKpis)
       .where(eq(agentKpis.agentId, agentId));
     return result.rowCount > 0;
+  }
+
+  // ── Start-up Garage ──────────────────────────────────────────────
+
+  async getStartupGaragePlans(userId: string): Promise<StartupGaragePlan[]> {
+    return await db.select().from(startupGaragePlans)
+      .where(eq(startupGaragePlans.userId, userId))
+      .orderBy(desc(startupGaragePlans.createdAt));
+  }
+
+  async getStartupGaragePlan(id: string): Promise<StartupGaragePlan | undefined> {
+    const [plan] = await db.select().from(startupGaragePlans)
+      .where(eq(startupGaragePlans.id, id));
+    return plan;
+  }
+
+  async createStartupGaragePlan(data: InsertStartupGaragePlan): Promise<StartupGaragePlan> {
+    const [plan] = await db.insert(startupGaragePlans).values(data).returning();
+    return plan;
+  }
+
+  async updateStartupGaragePlan(id: string, data: Partial<InsertStartupGaragePlan>): Promise<StartupGaragePlan | undefined> {
+    const [plan] = await db.update(startupGaragePlans)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(startupGaragePlans.id, id))
+      .returning();
+    return plan;
+  }
+
+  async deleteStartupGaragePlan(id: string): Promise<boolean> {
+    const result = await db.delete(startupGaragePlans).where(eq(startupGaragePlans.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async getStartupGarageOutputs(planId: string): Promise<StartupGarageOutput[]> {
+    return await db.select().from(startupGarageOutputs)
+      .where(eq(startupGarageOutputs.planId, planId));
+  }
+
+  async getStartupGarageOutput(planId: string, moduleKey: string): Promise<StartupGarageOutput | undefined> {
+    const [output] = await db.select().from(startupGarageOutputs)
+      .where(and(eq(startupGarageOutputs.planId, planId), eq(startupGarageOutputs.moduleKey, moduleKey)));
+    return output;
+  }
+
+  async upsertStartupGarageOutput(data: InsertStartupGarageOutput): Promise<StartupGarageOutput> {
+    const existing = await this.getStartupGarageOutput(data.planId, data.moduleKey);
+    if (existing) {
+      const [updated] = await db.update(startupGarageOutputs)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(startupGarageOutputs.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [output] = await db.insert(startupGarageOutputs).values(data).returning();
+    return output;
+  }
+
+  async createStartupGarageRun(data: InsertStartupGarageRun): Promise<StartupGarageRun> {
+    const [run] = await db.insert(startupGarageRuns).values(data).returning();
+    return run;
+  }
+
+  async updateStartupGarageRun(id: string, data: Partial<InsertStartupGarageRun>): Promise<StartupGarageRun | undefined> {
+    const [run] = await db.update(startupGarageRuns)
+      .set(data)
+      .where(eq(startupGarageRuns.id, id))
+      .returning();
+    return run;
   }
 }
 

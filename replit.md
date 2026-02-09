@@ -41,6 +41,7 @@ The project is a full-stack TypeScript monorepo. The frontend is built with Reac
 -   **Security and Permissions Hardening**: Environment-aware secure session cookies, trust proxy for correct IP detection, consistent admin protection middleware, and role-based navigation.
 -   **DTH Read-only Connector**: Token-protected endpoint for DreamTeamHub to fetch read-only files from whitelisted paths.
 -   **DTH Registry System**: Database-backed admin interface for managing DreamTeamHub connections with CRUD operations, health monitoring, sync logging, access logging, and dashboard statistics.
+-   **Start-up Garage**: AI-powered Business Plan generator with 8-step intake wizard, 7 generation modules (Team Roster, Website Audit, GTM Plan, Social/PR Plan, 20 Posts + Prompts, Canva Template Spec, 30/60/90 Action Plan), plan management, and module-by-module generation with status tracking. Routes: `/startup-garage`, `/startup-garage/new`, `/startup-garage/:id`. API: `/api/startup-garage/plans`, `/api/startup-garage/plans/:id/generate`, `/api/startup-garage/audit/website`.
 -   **GigsterCoach**: AI business coach module with Ask, Draft, and Review modes. Features plan-gated access, policy-governed autonomy, conversation history, suggestions inbox with apply/dismiss actions, and an apply engine for safe field modifications. Includes an embeddable CoachSidebar component.
 
 ### System Design Choices

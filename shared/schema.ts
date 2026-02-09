@@ -1799,3 +1799,78 @@ export const insertDthAccessLogSchema = createInsertSchema(dthAccessLogs).omit({
   id: true,
   createdAt: true,
 });
+
+// ── Start-up Garage Business Plan ──────────────────────────────────
+
+export const startupGaragePlans = pgTable("startup_garage_plans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  title: varchar("title").notNull(),
+  companyName: varchar("company_name").notNull(),
+  websiteUrl: varchar("website_url"),
+  industry: varchar("industry").notNull(),
+  businessType: varchar("business_type").notNull(),
+  businessDescription: text("business_description").notNull(),
+  stage: varchar("stage", { enum: ["idea", "pre_launch", "launched", "growth"] }).default("idea"),
+  primaryGoals: jsonb("primary_goals").$type<string[]>().default([]),
+  personas: jsonb("personas").$type<any[]>().default([]),
+  geoFocus: jsonb("geo_focus").$type<Record<string, any>>().default({}),
+  offer: jsonb("offer").$type<Record<string, any>>().default({}),
+  channels: jsonb("channels").$type<Record<string, any>>().default({}),
+  competitors: jsonb("competitors").$type<any[]>().default([]),
+  opsSourcing: jsonb("ops_sourcing").$type<Record<string, any>>().default({}),
+  deliverablesRequested: jsonb("deliverables_requested").$type<string[]>().default([]),
+  socialPrMode: varchar("social_pr_mode", { enum: ["LOCAL", "NATIONAL", "BOTH"] }).default("BOTH"),
+  status: varchar("status", { enum: ["draft", "generating", "complete", "error"] }).default("draft"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type StartupGaragePlan = typeof startupGaragePlans.$inferSelect;
+export type InsertStartupGaragePlan = typeof startupGaragePlans.$inferInsert;
+
+export const insertStartupGaragePlanSchema = createInsertSchema(startupGaragePlans).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const startupGarageOutputs = pgTable("startup_garage_outputs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  planId: varchar("plan_id").references(() => startupGaragePlans.id, { onDelete: "cascade" }).notNull(),
+  moduleKey: varchar("module_key", { enum: ["TEAM", "WEBSITE_AUDIT", "GTM", "SOCIAL_PR", "POSTS_20", "CANVA_TEMPLATE", "ACTION_30_60_90"] }).notNull(),
+  status: varchar("status", { enum: ["PENDING", "READY", "ERROR"] }).default("PENDING"),
+  content: jsonb("content").$type<Record<string, any>>(),
+  sources: jsonb("sources").$type<Record<string, any>>(),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type StartupGarageOutput = typeof startupGarageOutputs.$inferSelect;
+export type InsertStartupGarageOutput = typeof startupGarageOutputs.$inferInsert;
+
+export const insertStartupGarageOutputSchema = createInsertSchema(startupGarageOutputs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const startupGarageRuns = pgTable("startup_garage_runs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  planId: varchar("plan_id").references(() => startupGaragePlans.id, { onDelete: "cascade" }).notNull(),
+  requestedModules: jsonb("requested_modules").$type<string[]>().default([]),
+  modelInfo: jsonb("model_info").$type<Record<string, any>>().default({}),
+  status: varchar("status", { enum: ["running", "completed", "failed"] }).default("running"),
+  startedAt: timestamp("started_at").defaultNow(),
+  finishedAt: timestamp("finished_at"),
+});
+
+export type StartupGarageRun = typeof startupGarageRuns.$inferSelect;
+export type InsertStartupGarageRun = typeof startupGarageRuns.$inferInsert;
+
+export const insertStartupGarageRunSchema = createInsertSchema(startupGarageRuns).omit({
+  id: true,
+  startedAt: true,
+  finishedAt: true,
+});
