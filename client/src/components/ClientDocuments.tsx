@@ -288,7 +288,17 @@ export function ClientDocuments({ clientId }: ClientDocumentsProps) {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => window.open(document.fileUrl, '_blank')}
+                      onClick={async () => {
+                        if (!document.fileUrl) return;
+                        try {
+                          const response = await fetch(document.fileUrl, { credentials: 'include' });
+                          if (response.ok) {
+                            const blob = await response.blob();
+                            const blobUrl = URL.createObjectURL(blob);
+                            window.open(blobUrl, '_blank');
+                          }
+                        } catch (e) { console.error('View error:', e); }
+                      }}
                       data-testid={`button-view-document-${document.id}`}
                     >
                       <Eye className="h-4 w-4 mr-1" />

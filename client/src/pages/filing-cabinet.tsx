@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useTranslation } from "@/lib/i18n";
 import { AppHeader } from "@/components/app-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,6 +36,26 @@ import type { ClientDocument, Client } from "@shared/schema";
 import type { DocumentSearchResult } from "@/hooks/useAdvancedSearch";
 
 type ViewMode = 'grid' | 'list';
+
+function TextPreview({ url }: { url: string }) {
+  const [text, setText] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(url)
+      .then(r => r.text())
+      .then(t => { setText(t); setLoading(false); })
+      .catch(() => { setText('Unable to load text content'); setLoading(false); });
+  }, [url]);
+
+  if (loading) return <div className="p-4 text-gray-500">Loading...</div>;
+
+  return (
+    <pre className="w-full max-h-[60vh] overflow-auto p-4 text-sm font-mono whitespace-pre-wrap break-words" data-testid="preview-text">
+      {text}
+    </pre>
+  );
+}
 
 export default function FilingCabinet() {
   const { t } = useTranslation();
@@ -77,6 +97,8 @@ export default function FilingCabinet() {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
   const [editingDocument, setEditingDocument] = useState<DocumentSearchResult | null>(null);
+  const [previewDocument, setPreviewDocument] = useState<DocumentSearchResult | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   
   const { toast } = useToast();
@@ -124,6 +146,7 @@ export default function FilingCabinet() {
       const response = await fetch(`/api/client-documents/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(updates)
       });
       if (!response.ok) throw new Error('Update failed');
@@ -142,7 +165,8 @@ export default function FilingCabinet() {
   const deleteDocumentMutation = useMutation({
     mutationFn: async (id: string) => {
       const response = await fetch(`/api/client-documents/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        credentials: 'include'
       });
       if (!response.ok) throw new Error('Delete failed');
       return response.json();
@@ -180,13 +204,11 @@ export default function FilingCabinet() {
 
   // Document actions
   const handleDownloadDocument = async (document: DocumentSearchResult) => {
-    // If we have sourceId and sourceType, try to get fresh PDF from the API
     const sourceId = document.metadata?.sourceId;
     const sourceType = document.metadata?.sourceType || document.type;
     
     if (sourceId && sourceType) {
       try {
-        // Try direct PDF generation endpoint first
         let pdfUrl: string | null = null;
         switch (sourceType) {
           case 'invoice':
@@ -204,35 +226,47 @@ export default function FilingCabinet() {
         }
         
         if (pdfUrl) {
-          window.open(pdfUrl, '_blank');
-          return;
+          const response = await fetch(pdfUrl, { credentials: 'include' });
+          if (response.ok) {
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            const a = window.document.createElement('a');
+            a.href = url;
+            a.download = document.fileName || `${document.name}.pdf`;
+            window.document.body.appendChild(a);
+            a.click();
+            window.document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            return;
+          }
         }
       } catch (error) {
         console.error('Error generating PDF:', error);
       }
     }
     
-    // Fallback to stored file URL
     if (document.fileUrl) {
       try {
-        const response = await fetch(document.fileUrl, { method: 'HEAD' });
+        const downloadUrl = document.fileUrl.includes('?') 
+          ? `${document.fileUrl}&download=true` 
+          : `${document.fileUrl}?download=true`;
+        const response = await fetch(downloadUrl, { credentials: 'include' });
         if (response.ok) {
-          window.open(document.fileUrl, '_blank');
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          const a = window.document.createElement('a');
+          a.href = url;
+          a.download = document.fileName || document.name || 'download';
+          window.document.body.appendChild(a);
+          a.click();
+          window.document.body.removeChild(a);
+          URL.revokeObjectURL(url);
         } else {
-          const editorRoute = getEditorRoute(document);
-          if (editorRoute) {
-            toast({
-              title: "File Not Available",
-              description: "The PDF file was not generated. Opening the editor so you can regenerate it.",
-            });
-            setLocation(editorRoute);
-          } else {
-            toast({
-              title: "File Not Available", 
-              description: "The file for this document was not created. Please try editing the source document to regenerate the PDF.",
-              variant: "destructive"
-            });
-          }
+          toast({
+            title: "File Not Available", 
+            description: "The file could not be downloaded. Try opening it in the editor to regenerate.",
+            variant: "destructive"
+          });
         }
       } catch (error) {
         toast({
@@ -250,9 +284,22 @@ export default function FilingCabinet() {
     }
   };
 
-  const handlePreviewDocument = (document: DocumentSearchResult) => {
-    // For now, just show document details - could be enhanced with actual preview
-    setEditingDocument(document);
+  const handlePreviewDocument = async (document: DocumentSearchResult) => {
+    setPreviewDocument(document);
+    setPreviewUrl(null);
+
+    if (document.fileUrl) {
+      try {
+        const response = await fetch(document.fileUrl, { credentials: 'include' });
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          setPreviewUrl(url);
+        }
+      } catch (error) {
+        console.error('Error loading preview:', error);
+      }
+    }
   };
 
   const handleEditDocument = (document: DocumentSearchResult) => {
@@ -263,17 +310,15 @@ export default function FilingCabinet() {
     const sourceId = document.metadata?.sourceId;
     const sourceType = document.metadata?.sourceType || document.type;
     
-    if (!sourceId) return null;
-    
     switch (sourceType) {
       case 'invoice':
-        return `/edit-invoice/${sourceId}`;
+        return sourceId ? `/edit-invoice/${sourceId}` : '/create-invoice';
       case 'proposal':
-        return `/edit-proposal/${sourceId}`;
+        return sourceId ? `/edit-proposal/${sourceId}` : '/create-proposal';
       case 'contract':
-        return `/edit-contract/${sourceId}`;
+        return sourceId ? `/edit-contract/${sourceId}` : '/create-contract';
       case 'presentation':
-        return `/edit-presentation/${sourceId}`;
+        return sourceId ? `/edit-presentation/${sourceId}` : '/create-presentation';
       default:
         return null;
     }
@@ -286,14 +331,15 @@ export default function FilingCabinet() {
     } else {
       toast({
         title: t('error'),
-        description: "This document cannot be opened in an editor. It may have been created before this feature was available.",
+        description: "This document type cannot be opened in an editor.",
         variant: "destructive"
       });
     }
   };
 
   const canOpenInEditor = (document: DocumentSearchResult): boolean => {
-    return !!document.metadata?.sourceId;
+    const docType = document.metadata?.sourceType || document.type;
+    return ['invoice', 'proposal', 'contract', 'presentation'].includes(docType);
   };
 
   const handleFolderCreate = (name: string, description?: string) => {
@@ -502,7 +548,7 @@ export default function FilingCabinet() {
             <Button 
               variant="outline" 
               size="sm"
-              onClick={() => window.open(document.fileUrl, '_blank')}
+              onClick={() => handleDownloadDocument(document)}
               data-testid={`button-download-${document.id}`}
             >
               <Download className="h-4 w-4 mr-1" />
@@ -531,7 +577,7 @@ export default function FilingCabinet() {
                   <Edit2 className="h-4 w-4 mr-2" />
                   {t('editProperties') || t('edit')}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => window.open(document.fileUrl, '_blank')}>
+                <DropdownMenuItem onClick={() => handlePreviewDocument(document)}>
                   <Eye className="h-4 w-4 mr-2" />
                   {t('view')}
                 </DropdownMenuItem>
@@ -1026,6 +1072,70 @@ export default function FilingCabinet() {
                   Cancel
                 </Button>
               </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Preview Document Dialog */}
+      <Dialog open={!!previewDocument} onOpenChange={(open) => { if (!open) { setPreviewDocument(null); if (previewUrl) { URL.revokeObjectURL(previewUrl); setPreviewUrl(null); } } }}>
+        <DialogContent className="max-w-4xl max-h-[90vh]" data-testid="dialog-preview-document">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              {previewDocument?.name || 'Document Preview'}
+            </DialogTitle>
+          </DialogHeader>
+          {previewDocument && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between text-sm text-gray-600">
+                <div className="flex items-center gap-4">
+                  <Badge variant="outline">{previewDocument.type}</Badge>
+                  {previewDocument.fileName && <span>{previewDocument.fileName}</span>}
+                  {previewDocument.fileSize && <span>{formatFileSize(previewDocument.fileSize)}</span>}
+                </div>
+                <div className="flex gap-2">
+                  {canOpenInEditor(previewDocument) && (
+                    <Button size="sm" variant="outline" onClick={() => { setPreviewDocument(null); handleOpenInEditor(previewDocument); }} data-testid="button-preview-open-editor">
+                      <ExternalLink className="h-4 w-4 mr-1" />
+                      Open in Editor
+                    </Button>
+                  )}
+                  <Button size="sm" onClick={() => handleDownloadDocument(previewDocument)} data-testid="button-preview-download">
+                    <Download className="h-4 w-4 mr-1" />
+                    {t('download')}
+                  </Button>
+                </div>
+              </div>
+              <div className="border rounded-lg overflow-hidden bg-gray-50 min-h-[400px] flex items-center justify-center">
+                {previewUrl ? (
+                  previewDocument.mimeType?.startsWith('image/') ? (
+                    <img src={previewUrl} alt={previewDocument.name} className="max-w-full max-h-[60vh] object-contain" data-testid="preview-image" />
+                  ) : previewDocument.mimeType === 'application/pdf' ? (
+                    <iframe src={previewUrl} className="w-full h-[60vh]" title={previewDocument.name} data-testid="preview-pdf" />
+                  ) : previewDocument.mimeType === 'application/json' || previewDocument.mimeType === 'text/plain' ? (
+                    <TextPreview url={previewUrl} />
+                  ) : (
+                    <div className="text-center p-8 text-gray-500">
+                      <FileText className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                      <p className="font-medium">Preview not available for this file type</p>
+                      <p className="text-sm mt-1">{previewDocument.mimeType || 'Unknown type'}</p>
+                      <Button className="mt-4" onClick={() => handleDownloadDocument(previewDocument)} data-testid="button-preview-download-fallback">
+                        <Download className="h-4 w-4 mr-2" />
+                        Download to view
+                      </Button>
+                    </div>
+                  )
+                ) : (
+                  <div className="text-center p-8 text-gray-500">
+                    <File className="h-16 w-16 mx-auto mb-4 opacity-50 animate-pulse" />
+                    <p>Loading preview...</p>
+                  </div>
+                )}
+              </div>
+              {previewDocument.description && (
+                <p className="text-sm text-gray-600">{previewDocument.description}</p>
+              )}
             </div>
           )}
         </DialogContent>

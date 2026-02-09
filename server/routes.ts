@@ -4455,21 +4455,29 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
     }
   });
 
-  // Serve document files
-  app.get("/objects/:objectPath(*)", requireAuth, async (req, res) => {
+  const serveObjectFile = async (req: any, res: any) => {
     const userId = req.session.user?.id;
     const objectStorageService = new ObjectStorageService();
     try {
-      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
+      const rawPath = req.path.replace(/^\/api/, '');
+      const objectFile = await objectStorageService.getObjectEntityFile(rawPath);
+      if (!objectFile) {
+        return res.status(404).json({ message: "File not found" });
+      }
       const canAccess = await objectStorageService.canAccessObjectEntity({
         objectFile,
         userId: userId,
-        requestedPermission: ObjectPermission.READ,
+        requestedPermission: 'read',
       });
       if (!canAccess) {
         return res.sendStatus(401);
       }
-      objectStorageService.downloadObject(objectFile, res);
+      res.setHeader('Content-Type', objectFile.contentType);
+      res.setHeader('Content-Length', objectFile.size);
+      const disposition = req.query.download === 'true' ? 'attachment' : 'inline';
+      const filename = rawPath.split('/').pop() || 'file';
+      res.setHeader('Content-Disposition', `${disposition}; filename="${filename}"`);
+      objectFile.stream.pipe(res);
     } catch (error) {
       console.error("Error accessing document:", error);
       if (error instanceof ObjectNotFoundError) {
@@ -4477,7 +4485,10 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
       }
       return res.sendStatus(500);
     }
-  });
+  };
+
+  app.get("/objects/:objectPath(*)", requireAuth, serveObjectFile);
+  app.get("/api/objects/:objectPath(*)", requireAuth, serveObjectFile);
 
   // PATCH route for client documents (expected by frontend)
   app.patch("/api/client-documents/:id", requireAuth, async (req, res) => {

@@ -219,7 +219,24 @@ export function DraggableDocument({
             <Button 
               variant="outline" 
               size="sm"
-              onClick={() => window.open(document.fileUrl, '_blank')}
+              onClick={async () => {
+                if (!document.fileUrl) return;
+                try {
+                  const url = document.fileUrl.includes('?') ? `${document.fileUrl}&download=true` : `${document.fileUrl}?download=true`;
+                  const response = await fetch(url, { credentials: 'include' });
+                  if (response.ok) {
+                    const blob = await response.blob();
+                    const blobUrl = URL.createObjectURL(blob);
+                    const a = window.document.createElement('a');
+                    a.href = blobUrl;
+                    a.download = document.fileName || document.name || 'download';
+                    window.document.body.appendChild(a);
+                    a.click();
+                    window.document.body.removeChild(a);
+                    URL.revokeObjectURL(blobUrl);
+                  }
+                } catch (e) { console.error('Download error:', e); }
+              }}
               data-testid={`button-download-${document.id}`}
             >
               <Download className="h-4 w-4 mr-1" />
@@ -242,7 +259,17 @@ export function DraggableDocument({
                   <Edit2 className="h-4 w-4 mr-2" />
                   Edit Properties
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => window.open(document.fileUrl, '_blank')}>
+                <DropdownMenuItem onClick={async () => {
+                  if (!document.fileUrl) return;
+                  try {
+                    const response = await fetch(document.fileUrl, { credentials: 'include' });
+                    if (response.ok) {
+                      const blob = await response.blob();
+                      const blobUrl = URL.createObjectURL(blob);
+                      window.open(blobUrl, '_blank');
+                    }
+                  } catch (e) { console.error('Preview error:', e); }
+                }}>
                   <Eye className="h-4 w-4 mr-2" />
                   View/Preview
                 </DropdownMenuItem>
