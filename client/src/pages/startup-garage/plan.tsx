@@ -3,11 +3,13 @@ import { useParams, Link } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getPlan, generate, listOutputs, listRuns } from "@/lib/startup-garage/api";
 import { StartupGarageModuleKey } from "../../../../shared/contracts/startupGarage";
+import { ModuleOutputRenderer } from "./module-renderer";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { FileDown, FileText } from "lucide-react";
 
 const MODULES: { key: typeof StartupGarageModuleKey._type; label: string }[] = [
   { key: "TEAM", label: "Customize Team" },
@@ -18,10 +20,6 @@ const MODULES: { key: typeof StartupGarageModuleKey._type; label: string }[] = [
   { key: "CANVA_TEMPLATE", label: "Instagram Template Spec" },
   { key: "ACTION_30_60_90", label: "30/60/90 Action Plan" },
 ];
-
-function safeJson(val: any) {
-  try { return JSON.stringify(val, null, 2); } catch { return String(val); }
-}
 
 export default function StartupGaragePlanPage() {
   const params = useParams() as any;
@@ -53,12 +51,23 @@ export default function StartupGaragePlanPage() {
 
   const plan = planQ.data?.plan;
   const outputs = outputsQ.data?.outputs || [];
+  const hasReadyOutputs = outputs.some((o: any) => o.status === "READY");
 
   const outputByKey = useMemo(() => {
     const map: Record<string, any> = {};
     for (const o of outputs) map[o.moduleKey] = o;
     return map;
   }, [outputs]);
+
+  function downloadFile(format: "pdf" | "docx") {
+    const url = `/api/startup-garage/plans/${planId}/export/${format}`;
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
 
   return (
     <div className="mx-auto max-w-5xl p-4 md:p-6 space-y-6">
@@ -73,9 +82,21 @@ export default function StartupGaragePlanPage() {
           </p>
         </div>
 
-        <Link href="/startup-garage">
-          <Button variant="outline" data-testid="button-back-to-plans">Back to plans</Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          {hasReadyOutputs && (
+            <>
+              <Button variant="outline" size="sm" data-testid="button-download-pdf" onClick={() => downloadFile("pdf")}>
+                <FileDown className="h-4 w-4 mr-1" /> PDF
+              </Button>
+              <Button variant="outline" size="sm" data-testid="button-download-docx" onClick={() => downloadFile("docx")}>
+                <FileText className="h-4 w-4 mr-1" /> Word
+              </Button>
+            </>
+          )}
+          <Link href="/startup-garage">
+            <Button variant="outline" data-testid="button-back-to-plans">Back to plans</Button>
+          </Link>
+        </div>
       </div>
 
       <Card>
@@ -114,7 +135,19 @@ export default function StartupGaragePlanPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Outputs</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Outputs</CardTitle>
+            {hasReadyOutputs && (
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" data-testid="button-download-pdf-bottom" onClick={() => downloadFile("pdf")}>
+                  <FileDown className="h-4 w-4 mr-1" /> Download PDF
+                </Button>
+                <Button variant="outline" size="sm" data-testid="button-download-docx-bottom" onClick={() => downloadFile("docx")}>
+                  <FileText className="h-4 w-4 mr-1" /> Download Word
+                </Button>
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-5">
           {outputsQ.isLoading ? (
@@ -124,29 +157,24 @@ export default function StartupGaragePlanPage() {
           ) : (
             MODULES.map((m) => {
               const o = outputByKey[m.key];
+              if (!o) return null;
               return (
                 <div key={m.key} className="rounded-lg border p-4" data-testid={`output-card-${m.key}`}>
-                  <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <div className="font-medium">{m.label}</div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary">{m.key}</Badge>
-                      <Badge variant="secondary" data-testid={`badge-output-status-${m.key}`}>{o?.status ?? "—"}</Badge>
-                      {o?.status === "READY" ? (
-                        <Button size="sm" variant="outline" data-testid={`button-copy-${m.key}`} onClick={() => navigator.clipboard.writeText(safeJson(o.content))}>
-                          Copy JSON
-                        </Button>
-                      ) : null}
-                    </div>
+                  <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+                    <div className="font-semibold text-lg">{m.label}</div>
+                    <Badge variant={o.status === "READY" ? "default" : o.status === "ERROR" ? "destructive" : "secondary"} data-testid={`badge-output-status-${m.key}`}>
+                      {o.status}
+                    </Badge>
                   </div>
 
-                  {o?.status === "ERROR" ? (
-                    <div className="mt-3 text-sm text-destructive" data-testid={`text-error-${m.key}`}>{o.errorMessage || "Module failed"}</div>
-                  ) : o?.status === "READY" ? (
-                    <pre className="mt-3 max-h-[520px] overflow-auto rounded-md bg-muted p-3 text-xs" data-testid={`output-content-${m.key}`}>
-                      {safeJson(o.content)}
-                    </pre>
+                  {o.status === "ERROR" ? (
+                    <div className="text-sm text-destructive" data-testid={`text-error-${m.key}`}>{o.errorMessage || "Module failed"}</div>
+                  ) : o.status === "READY" ? (
+                    <div data-testid={`output-content-${m.key}`}>
+                      <ModuleOutputRenderer moduleKey={m.key} content={o.content} />
+                    </div>
                   ) : (
-                    <div className="mt-3 text-sm text-muted-foreground">Not generated yet.</div>
+                    <div className="text-sm text-muted-foreground">Generating…</div>
                   )}
                 </div>
               );

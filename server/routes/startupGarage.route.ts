@@ -12,6 +12,7 @@ import {
   StartupGarageModuleKey,
 } from "../../shared/contracts/startupGarage.js";
 import { StartupGaragePlanService } from "../services/startupGaragePlan.service.js";
+import { generateStartupGaragePDF, generateStartupGarageDocx } from "../services/startupGarageExport.service.js";
 
 type Deps = {
   requireAuth: (req: any, res: any, next: any) => any;
@@ -145,6 +146,58 @@ export function startupGarageRoute(deps: Deps) {
     } catch (err: any) {
       console.error("[startupGarage] get output error", err);
       return res.status(404).json({ message: err?.message || "Output not found" });
+    }
+  });
+
+  r.get("/plans/:planId/export/pdf", deps.requireAuth, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+      const planId = String(req.params.planId);
+      const plan = await svc.getPlanOrThrow(userId, planId);
+      const outputs = await svc.listOutputs(userId, planId);
+
+      const readyOutputs = (outputs as any[]).filter((o) => o.status === "READY");
+      const buf = await generateStartupGaragePDF(
+        (plan as any).title,
+        (plan as any).companyName,
+        readyOutputs
+      );
+
+      const filename = `${((plan as any).companyName || "plan").replace(/[^a-zA-Z0-9]/g, "_")}_Business_Plan.pdf`;
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      return res.send(buf);
+    } catch (err: any) {
+      console.error("[startupGarage] export PDF error", err);
+      return res.status(400).json({ message: err?.message || "Failed to export PDF" });
+    }
+  });
+
+  r.get("/plans/:planId/export/docx", deps.requireAuth, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+      const planId = String(req.params.planId);
+      const plan = await svc.getPlanOrThrow(userId, planId);
+      const outputs = await svc.listOutputs(userId, planId);
+
+      const readyOutputs = (outputs as any[]).filter((o) => o.status === "READY");
+      const buf = await generateStartupGarageDocx(
+        (plan as any).title,
+        (plan as any).companyName,
+        readyOutputs
+      );
+
+      const filename = `${((plan as any).companyName || "plan").replace(/[^a-zA-Z0-9]/g, "_")}_Business_Plan.docx`;
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      return res.send(buf);
+    } catch (err: any) {
+      console.error("[startupGarage] export DOCX error", err);
+      return res.status(400).json({ message: err?.message || "Failed to export DOCX" });
     }
   });
 
