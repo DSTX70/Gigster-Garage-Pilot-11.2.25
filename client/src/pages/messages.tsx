@@ -105,22 +105,24 @@ export function MessagesPage() {
     }
   });
 
-  // Transform API messages to match local interface
-  const messages: Message[] = messagesData.map((msg: any) => ({
-    id: msg.id,
-    from: msg.fromUser?.name || msg.fromUser?.username || 'System',
-    fromUserId: msg.fromUserId,
-    to: msg.toEmail,
-    subject: msg.subject,
-    content: msg.content,
-    timestamp: new Date(msg.createdAt),
-    read: msg.isRead,
-    priority: msg.priority || 'medium',
-    attachments: msg.attachments || [],
-    isSent: msg.fromUserId === user?.id
-  }));
+  // Transform API messages to match local interface — only show sent messages
+  const messages: Message[] = messagesData
+    .filter((msg: any) => msg.fromUserId === user?.id)
+    .map((msg: any) => ({
+      id: msg.id,
+      from: msg.fromUser?.name || msg.fromUser?.username || 'System',
+      fromUserId: msg.fromUserId,
+      to: msg.toEmail,
+      subject: msg.subject,
+      content: msg.content,
+      timestamp: new Date(msg.createdAt),
+      read: msg.isRead,
+      priority: msg.priority || 'medium',
+      attachments: msg.attachments || [],
+      isSent: true
+    }));
 
-  const unreadCount = messages.filter(m => !m.read).length;
+  const totalSent = messages.length;
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -338,9 +340,9 @@ export function MessagesPage() {
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Messages</h1>
               <p className="text-gray-600 mt-2">
-                {unreadCount > 0 
-                  ? `You have ${unreadCount} unread message${unreadCount > 1 ? 's' : ''}`
-                  : 'All messages read'
+                {totalSent > 0 
+                  ? `${totalSent} sent message${totalSent !== 1 ? 's' : ''}`
+                  : 'No sent messages yet'
                 }
               </p>
             </div>
@@ -537,10 +539,10 @@ export function MessagesPage() {
           ) : messages.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
-                <Mail size={48} className="text-gray-400 mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No messages</h3>
+                <Send size={48} className="text-gray-400 mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No sent messages</h3>
                 <p className="text-gray-600 text-center">
-                  You don't have any messages yet. Messages from the system and other users will appear here.
+                  You haven't sent any messages yet. Use the Compose button to send your first message.
                 </p>
               </CardContent>
             </Card>
