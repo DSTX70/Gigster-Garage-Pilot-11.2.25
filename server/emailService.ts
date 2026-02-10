@@ -22,6 +22,27 @@ const APP_URL = process.env.REPLIT_DOMAINS
   ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
   : 'http://localhost:5000';
 
+const DEFAULT_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || 'dustinsparks@mac.com';
+const DEFAULT_FROM_NAME = process.env.SENDGRID_FROM_NAME || 'Gigster Garage';
+const DEFAULT_REPLY_TO = process.env.SENDGRID_REPLY_TO || DEFAULT_FROM_EMAIL;
+
+function buildFromField(fromEmail: string = DEFAULT_FROM_EMAIL): { email: string; name: string } {
+  return {
+    email: fromEmail,
+    name: DEFAULT_FROM_NAME,
+  };
+}
+
+function buildDeliverabilityHeaders(): Record<string, string> {
+  return {
+    'X-Priority': '3',
+    'X-Mailer': 'Gigster Garage Workflow Hub',
+    'Precedence': 'bulk',
+    'List-Unsubscribe': `<mailto:${DEFAULT_FROM_EMAIL}?subject=unsubscribe>, <${APP_URL}/settings>`,
+    'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+  };
+}
+
 // Initialize Twilio client if credentials are available
 let twilioClient: twilio.Twilio | null = null;
 if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
@@ -47,6 +68,7 @@ interface EmailParams {
   subject: string;
   text?: string;
   html?: string;
+  replyTo?: string;
   attachments?: Array<{
     content: Buffer | string;
     filename: string;
@@ -65,15 +87,24 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
   }
 
   try {
+    const fromField = typeof params.from === 'string' 
+      ? buildFromField(params.from) 
+      : params.from;
+
     const emailData: any = {
       to: params.to,
-      from: params.from,
+      from: fromField,
+      replyTo: params.replyTo || DEFAULT_REPLY_TO,
       subject: params.subject,
       text: params.text || '',
       html: params.html || '',
+      headers: buildDeliverabilityHeaders(),
+      trackingSettings: {
+        clickTracking: { enable: false, enableText: false },
+        openTracking: { enable: false },
+      },
     };
 
-    // Add attachments if provided
     if (params.attachments && params.attachments.length > 0) {
       emailData.attachments = params.attachments.map(attachment => ({
         content: Buffer.isBuffer(attachment.content) 
@@ -86,10 +117,10 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
     }
 
     await mailService.send(emailData);
-    console.log(`Email sent successfully to ${params.to}${params.attachments ? ` with ${params.attachments.length} attachment(s)` : ''}`);
+    console.log(`📧 Email sent successfully to ${params.to}${params.attachments ? ` with ${params.attachments.length} attachment(s)` : ''}`);
     return true;
-  } catch (error) {
-    console.error('SendGrid email error:', error);
+  } catch (error: any) {
+    console.error('SendGrid email error:', error?.response?.body || error);
     return false;
   }
 }
@@ -100,7 +131,7 @@ export async function sendCustomEmail(
   subject: string,
   textContent: string,
   htmlContent: string,
-  fromEmail: string = 'dustinsparks@mac.com'
+  fromEmail: string = DEFAULT_FROM_EMAIL
 ): Promise<boolean> {
   return await sendEmail({
     to,
@@ -119,7 +150,7 @@ export async function sendProposalEmail(
   clientName: string = '',
   customMessage: string = '',
   pdfAttachment?: Buffer,
-  fromEmail: string = 'dustinsparks@mac.com'
+  fromEmail: string = DEFAULT_FROM_EMAIL
 ): Promise<boolean> {
   const subject = `Proposal: ${proposalTitle}`;
   
@@ -206,6 +237,7 @@ Gigster Garage Team
             <div class="footer">
                 <p>This email was sent from Gigster Garage - Simplified Workflow Hub</p>
                 <p>Professional project management and client collaboration platform</p>
+                <p style="margin-top: 10px; font-size: 12px; color: #999;">If you no longer wish to receive these emails, please <a href="${APP_URL}/settings" style="color: #999;">manage your preferences</a> or reply with "unsubscribe".</p>
             </div>
         </div>
     </body>
@@ -239,7 +271,7 @@ export async function sendInvoiceEmail(
   invoiceData: any,
   pdfAttachment?: Buffer,
   customMessage: string = '',
-  fromEmail: string = 'dustinsparks@mac.com'
+  fromEmail: string = DEFAULT_FROM_EMAIL
 ): Promise<boolean> {
   const subject = `Invoice: ${invoiceData.invoiceNumber || invoiceData.id}`;
   
@@ -337,6 +369,7 @@ Gigster Garage Team
             <div class="footer">
                 <p>This invoice was sent from Gigster Garage - Simplified Workflow Hub</p>
                 <p>Professional project management and client collaboration platform</p>
+                <p style="margin-top: 10px; font-size: 12px; color: #999;">If you no longer wish to receive these emails, please <a href="${APP_URL}/settings" style="color: #999;">manage your preferences</a> or reply with "unsubscribe".</p>
             </div>
         </div>
     </body>
@@ -367,7 +400,7 @@ Gigster Garage Team
 export async function sendHighPriorityTaskNotification(
   task: Task, 
   assignedUser: User,
-  fromEmail: string = 'dustinsparks@mac.com'
+  fromEmail: string = DEFAULT_FROM_EMAIL
 ): Promise<boolean> {
   if (!assignedUser.emailOptIn || !assignedUser.notificationEmail) {
     console.log(`User ${assignedUser.username} has email notifications disabled or no notification email set`);
@@ -479,7 +512,10 @@ Gigster Garage Team
             <div class="footer">
                 <p>Gigster Garage - Simplified Workflow Hub</p>
                 <p style="font-size: 12px; opacity: 0.8;">
-                    To manage your notification preferences, log in to Gigster Garage and visit your account settings.
+                    To manage your notification preferences, log in to Gigster Garage and visit your <a href="${APP_URL}/settings" style="color: #93c5fd;">account settings</a>.
+                </p>
+                <p style="font-size: 11px; opacity: 0.6;">
+                    If you no longer wish to receive these emails, reply with "unsubscribe".
                 </p>
             </div>
         </div>
@@ -537,7 +573,7 @@ export async function sendMessageAsEmail(
   message: Message,
   fromUser: User,
   toEmail: string,
-  fromEmail: string = 'dustinsparks@mac.com'
+  fromEmail: string = DEFAULT_FROM_EMAIL
 ): Promise<boolean> {
   const subject = message.subject;
   
@@ -593,6 +629,7 @@ Reply to this email to respond directly.
                 <p style="font-size: 12px; margin-top: 10px;">
                     Reply to this email to respond directly through the messaging system.
                 </p>
+                <p style="font-size: 11px; color: #999; margin-top: 8px;">If you no longer wish to receive these emails, please <a href="${APP_URL}/settings" style="color: #999;">manage your preferences</a> or reply with "unsubscribe".</p>
             </div>
         </div>
     </body>

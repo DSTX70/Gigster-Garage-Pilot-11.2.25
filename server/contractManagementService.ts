@@ -226,7 +226,7 @@ Gigster Garage Legal System
 
       const emailSent = await sendEmail({
         to: notificationEmail,
-        from: 'dustinsparks@mac.com',
+        from: process.env.SENDGRID_FROM_EMAIL || 'dustinsparks@mac.com',
         subject,
         text: textContent,
         html: htmlContent

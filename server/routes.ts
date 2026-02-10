@@ -5183,9 +5183,11 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
       const sgMail = await import('@sendgrid/mail');
       sgMail.default.setApiKey(sendgridKey);
 
+      const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'dustinsparks@mac.com';
       const msg = {
         to: invoice.clientEmail,
-        from: process.env.SENDGRID_FROM_EMAIL || 'dustinsparks@mac.com',
+        from: { email: fromEmail, name: process.env.SENDGRID_FROM_NAME || 'Gigster Garage' },
+        replyTo: process.env.SENDGRID_REPLY_TO || fromEmail,
         subject: `Invoice #${invoice.invoiceNumber} from Gigster Garage`,
         html: `
           <h2>Invoice #${invoice.invoiceNumber}</h2>
@@ -5196,6 +5198,14 @@ Return a JSON object with a "suggestions" array containing the field objects.`;
           ${invoice.paymentLink ? `<p><a href="${invoiceWithPaymentUrl.paymentUrl}">Click here to pay online</a></p>` : ''}
           <p>Thank you for your business!</p>
         `,
+        headers: {
+          'List-Unsubscribe': `<mailto:${fromEmail}?subject=unsubscribe>`,
+          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+        },
+        trackingSettings: {
+          clickTracking: { enable: false, enableText: false },
+          openTracking: { enable: false },
+        },
         attachments: [
           {
             content: pdfBuffer.toString('base64'),
