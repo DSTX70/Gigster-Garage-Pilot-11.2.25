@@ -6,6 +6,7 @@ import {
   startupGarageRuns,
 } from "../../shared/schema.js";
 import { StartupGarageService } from "./startupGarage.service.js";
+import { upsertUserIntakeProfile } from "./intakeBackfill.adapter.js";
 import type { StartupGarageModuleKey } from "../../shared/contracts/startupGarage.js";
 
 type PlanRow = typeof startupGaragePlans.$inferSelect;
@@ -34,6 +35,14 @@ export class StartupGaragePlanService {
         personas: intake.personas ?? [],
         competitors: intake.competitors ?? [],
         socialPrMode: intake.socialPrMode ?? "BOTH",
+        geoFocus: intake.geography ?? {},
+        offer: intake.offer ?? {},
+        targetSegments: intake.targetSegments ?? [],
+        vendorsAndSourcing: intake.vendorsAndSourcing ?? {},
+        websiteGoals: intake.websiteGoals ?? {},
+        brandAssets: intake.brandAssets ?? {},
+        socialHandles: intake.socialHandles ?? {},
+        postingCapacity: intake.postingCapacity ?? "MED",
         updatedAt: now(),
         createdAt: now(),
       } as any)
@@ -102,7 +111,7 @@ export class StartupGaragePlanService {
       .orderBy(desc(startupGarageRuns.startedAt));
   }
 
-  private normalizePlanForGenerator(plan: PlanRow) {
+  normalizePlanForGenerator(plan: PlanRow) {
     return {
       companyName: (plan as any).companyName,
       websiteUrl: (plan as any).websiteUrl,
@@ -114,11 +123,65 @@ export class StartupGaragePlanService {
       personas: (plan as any).personas ?? [],
       competitors: (plan as any).competitors ?? [],
       socialPrMode: (plan as any).socialPrMode ?? "BOTH",
-      geoFocus: (plan as any).geoFocus,
-      offer: (plan as any).offer,
+      geography: (plan as any).geoFocus ?? {},
+      offer: (plan as any).offer ?? {},
+      targetSegments: (plan as any).targetSegments ?? [],
+      vendorsAndSourcing: (plan as any).vendorsAndSourcing ?? {},
+      websiteGoals: (plan as any).websiteGoals ?? {},
+      brandAssets: (plan as any).brandAssets ?? {},
+      socialHandles: (plan as any).socialHandles ?? {},
+      postingCapacity: (plan as any).postingCapacity ?? "MED",
       channels: (plan as any).channels,
       opsSourcing: (plan as any).opsSourcing,
+      geoFocus: (plan as any).geoFocus,
     };
+  }
+
+  private deepMerge(base: any, patch: any): any {
+    if (patch === null || patch === undefined) return base;
+    if (Array.isArray(patch)) return patch;
+    if (typeof patch !== "object") return patch;
+    const out = { ...(base || {}) };
+    for (const k of Object.keys(patch)) {
+      out[k] = this.deepMerge((base || {})[k], patch[k]);
+    }
+    return out;
+  }
+
+  async updatePlanIntake(userId: string, planId: string, patch: any, backfillCoreIntake: boolean) {
+    const plan = await this.getPlanOrThrow(userId, planId);
+    const current = this.normalizePlanForGenerator(plan);
+    const mergedIntake = this.deepMerge(current, patch);
+
+    await db.update(startupGaragePlans)
+      .set({
+        companyName: mergedIntake.companyName,
+        websiteUrl: mergedIntake.websiteUrl ?? null,
+        industry: mergedIntake.industry,
+        businessType: mergedIntake.businessType,
+        businessDescription: mergedIntake.businessDescription,
+        stage: mergedIntake.stage ?? null,
+        primaryGoals: mergedIntake.primaryGoals ?? [],
+        personas: mergedIntake.personas ?? [],
+        competitors: mergedIntake.competitors ?? [],
+        socialPrMode: mergedIntake.socialPrMode ?? "BOTH",
+        geoFocus: mergedIntake.geography ?? {},
+        offer: mergedIntake.offer ?? {},
+        targetSegments: mergedIntake.targetSegments ?? [],
+        vendorsAndSourcing: mergedIntake.vendorsAndSourcing ?? {},
+        websiteGoals: mergedIntake.websiteGoals ?? {},
+        brandAssets: mergedIntake.brandAssets ?? {},
+        socialHandles: mergedIntake.socialHandles ?? {},
+        postingCapacity: mergedIntake.postingCapacity ?? "MED",
+        updatedAt: now(),
+      } as any)
+      .where(eq(startupGaragePlans.id, planId));
+
+    if (backfillCoreIntake) {
+      await upsertUserIntakeProfile(userId, mergedIntake);
+    }
+
+    return { updated: true, mergedIntake };
   }
 
   async generateModules(userId: string, planId: string, modules: StartupGarageModuleKey[]) {

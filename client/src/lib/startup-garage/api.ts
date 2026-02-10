@@ -7,6 +7,11 @@ import {
   GenerateStartupGarageOutputsResponse,
   ListStartupGarageOutputsResponse,
   ListStartupGarageRunsResponse,
+  StartupGarageIntakeAuditResponse,
+  UpdateStartupGaragePlanIntakeRequest,
+  UpdateStartupGaragePlanIntakeResponse,
+  ActionPlanToTasksRequest,
+  ActionPlanToTasksResponse,
 } from "../../../../shared/contracts/startupGarage";
 
 async function jsonFetch(url: string, init?: RequestInit) {
@@ -54,4 +59,21 @@ export async function listOutputs(planId: string) {
 export async function listRuns(planId: string) {
   const json = await jsonFetch(`/api/startup-garage/plans/${planId}/runs`);
   return ListStartupGarageRunsResponse.parse(json);
+}
+
+export async function intakeAudit(planId: string) {
+  const json = await jsonFetch(`/api/startup-garage/plans/${planId}/intake-audit`);
+  return StartupGarageIntakeAuditResponse.parse(json);
+}
+
+export async function updateIntake(planId: string, body: unknown) {
+  const parsed = UpdateStartupGaragePlanIntakeRequest.parse(body);
+  const json = await jsonFetch(`/api/startup-garage/plans/${planId}/intake`, { method: "PATCH", body: JSON.stringify(parsed) });
+  return UpdateStartupGaragePlanIntakeResponse.parse(json);
+}
+
+export async function actionPlanToTasks(planId: string, body: unknown) {
+  const parsed = ActionPlanToTasksRequest.parse(body);
+  const json = await jsonFetch(`/api/startup-garage/plans/${planId}/action-plan/to-tasks`, { method: "POST", body: JSON.stringify(parsed) });
+  return ActionPlanToTasksResponse.parse(json);
 }

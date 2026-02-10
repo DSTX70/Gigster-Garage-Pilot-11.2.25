@@ -10,12 +10,19 @@ function planSummary(plan: any): string {
     plan.websiteUrl ? `Website: ${plan.websiteUrl}` : "",
     plan.primaryGoals?.length ? `Primary Goals: ${plan.primaryGoals.join(", ")}` : "",
     plan.personas?.length ? `Personas: ${JSON.stringify(plan.personas)}` : "",
+    plan.geography && Object.keys(plan.geography).length ? `Geography: ${JSON.stringify(plan.geography)}` : "",
     plan.geoFocus && Object.keys(plan.geoFocus).length ? `Geo Focus: ${JSON.stringify(plan.geoFocus)}` : "",
     plan.offer && Object.keys(plan.offer).length ? `Offer: ${JSON.stringify(plan.offer)}` : "",
-    plan.channels && Object.keys(plan.channels).length ? `Channels: ${JSON.stringify(plan.channels)}` : "",
+    plan.targetSegments?.length ? `Target Segments: ${plan.targetSegments.join(", ")}` : "",
     plan.competitors?.length ? `Competitors: ${JSON.stringify(plan.competitors)}` : "",
-    plan.opsSourcing && Object.keys(plan.opsSourcing).length ? `Ops/Sourcing: ${JSON.stringify(plan.opsSourcing)}` : "",
+    plan.vendorsAndSourcing && Object.keys(plan.vendorsAndSourcing).length ? `Vendors & Sourcing: ${JSON.stringify(plan.vendorsAndSourcing)}` : "",
+    plan.websiteGoals && Object.keys(plan.websiteGoals).length ? `Website Goals: ${JSON.stringify(plan.websiteGoals)}` : "",
+    plan.brandAssets && Object.keys(plan.brandAssets).length ? `Brand Assets: ${JSON.stringify(plan.brandAssets)}` : "",
+    plan.socialHandles && Object.keys(plan.socialHandles).length ? `Social Handles: ${JSON.stringify(plan.socialHandles)}` : "",
+    plan.postingCapacity ? `Posting Capacity: ${plan.postingCapacity}` : "",
     plan.socialPrMode ? `Social/PR Mode: ${plan.socialPrMode}` : "",
+    plan.channels && Object.keys(plan.channels).length ? `Channels: ${JSON.stringify(plan.channels)}` : "",
+    plan.opsSourcing && Object.keys(plan.opsSourcing).length ? `Ops/Sourcing: ${JSON.stringify(plan.opsSourcing)}` : "",
   ];
   return parts.filter(Boolean).join("\n");
 }
@@ -177,12 +184,16 @@ export class StartupGarageService {
     }
 
     const openai = this.requireAI();
+    const conversionGoal = plan.websiteGoals?.primaryConversionGoal || "LEADS";
     const system = [
-      "You are a website audit expert. Given raw HTML analysis findings for a startup's website, produce a structured audit report.",
+      "You are a website audit expert producing a 'Sarah-grade' structured report. Given raw HTML analysis findings for a startup's website, produce a comprehensive audit.",
+      `The client's primary conversion goal is: ${conversionGoal}.`,
       "Return valid JSON matching this schema exactly:",
-      '{ "summary": { "overall": string, "top3Wins": string[], "top3Fixes": string[] }, "scorecards": [{ "category": string, "score": number, "maxScore": number, "details": string }], "priorityBacklog": [{ "priority": "P0"|"P1"|"P2", "issue": string, "recommendation": string, "effort": "low"|"medium"|"high" }], "notes": { "fetchError": string|null, "auditDate": string, "methodology": string } }',
-      "Scorecards should cover: HTTPS, Title/Meta, Headings, Open Graph, Mobile Readiness, Image Optimization.",
+      '{ "companyDescription": string, "offersSummary": string[], "socialProofAudit": { "hasTestimonials": boolean, "hasReviews": boolean, "hasCaseStudies": boolean, "recommendations": string[] }, "summary": { "overall": string, "top3Wins": string[], "top3Fixes": string[] }, "scorecards": [{ "category": string, "score": number, "maxScore": number, "details": string }], "priorityBacklog": [{ "priority": "P0"|"P1"|"P2", "issue": string, "recommendation": string, "effort": "low"|"medium"|"high" }], "notes": { "fetchError": string|null, "auditDate": string, "methodology": string } }',
+      "Scorecards should cover: HTTPS, Title/Meta, Headings, Open Graph, Mobile Readiness, Image Optimization, Conversion Alignment, Social Proof.",
       "Score each out of 10. Be specific and actionable in recommendations.",
+      "The companyDescription should describe what the company does based on the website content.",
+      "offersSummary should list the main products/services found on the website.",
     ].join("\n");
 
     const user = `Business Plan:\n${planSummary(plan)}\n\nWebsite Analysis Findings:\n${JSON.stringify(findings, null, 2)}\n\nGenerate the website audit report as JSON.`;
@@ -192,10 +203,12 @@ export class StartupGarageService {
   async generateGtmPlan(plan: any): Promise<object> {
     const openai = this.requireAI();
     const system = [
-      "You are a Go-To-Market strategy expert. Given a startup business plan, produce a comprehensive GTM plan.",
+      "You are a Go-To-Market strategy expert. Given a startup business plan with competitive intelligence, produce a comprehensive GTM plan.",
       "Return valid JSON matching this schema exactly:",
-      '{ "companyOverview": string, "targetPersonas": [{ "name": string, "demographics": string, "painPoints": string[], "buyingMotivations": string[], "channels": string[] }], "positioning": { "statement": string, "uniqueValueProp": string, "keyDifferentiators": string[] }, "competitiveLandscape": { "overview": string, "competitors": [{ "name": string, "strengths": string[], "weaknesses": string[], "marketShare": string }], "opportunities": string[] }, "pricingRecommendations": { "strategy": string, "tiers": [{ "name": string, "price": string, "features": string[], "target": string }], "rationale": string }, "vendorPlan": { "keyVendors": [{ "category": string, "recommendation": string, "cost": string }], "timeline": string }, "channelPlan": { "primaryChannels": [{ "channel": string, "strategy": string, "budget": string, "expectedROI": string }], "secondaryChannels": string[] } }',
-      "Be specific to the industry, stage, and geo focus provided.",
+      '{ "companyOverview": string, "targetPersonas": [{ "name": string, "demographics": string, "painPoints": string[], "buyingMotivations": string[], "channels": string[] }], "positioning": { "statement": string, "uniqueValueProp": string, "keyDifferentiators": string[] }, "competitiveLandscape": { "overview": string, "competitors": [{ "name": string, "strengths": string[], "weaknesses": string[], "marketShare": string }], "comparisonGrid": [{ "feature": string, "us": string, "competitors": Record<string, string> }], "differentiators": string[], "gaps": string[], "opportunities": string[] }, "vendorMatrix": [{ "category": string, "recommendation": string, "alternatives": string[], "cost": string, "pros": string[], "cons": string[] }], "pricingRecommendations": { "strategy": string, "tiers": [{ "name": string, "price": string, "features": string[], "target": string }], "rationale": string }, "channelPlan": { "primaryChannels": [{ "channel": string, "strategy": string, "budget": string, "expectedROI": string }], "secondaryChannels": string[] } }',
+      "Be specific to the industry, stage, and geographic focus provided.",
+      "The competitiveLandscape must include a comparisonGrid comparing features across us vs each competitor.",
+      "The vendorMatrix should recommend tools/vendors the company should use, with alternatives and cost comparisons.",
     ].join("\n");
 
     const user = `Business Plan:\n${planSummary(plan)}\n\nGenerate the Go-To-Market plan as JSON.`;
@@ -205,14 +218,19 @@ export class StartupGarageService {
   async generateSocialPr(plan: any): Promise<object> {
     const openai = this.requireAI();
     const mode = plan.socialPrMode || "BOTH";
+    const capacity = plan.postingCapacity || "MED";
+    const brandVibeWords = plan.brandAssets?.brandVibeWords?.length ? plan.brandAssets.brandVibeWords.join(", ") : "professional, modern";
     const system = [
       "You are a social media and PR strategy expert for startups.",
       `The client wants a ${mode} strategy (LOCAL, NATIONAL, or BOTH).`,
+      `Posting capacity: ${capacity} (LOW = 3-5/week, MED = 5-10/week, HIGH = 10-15/week).`,
+      `Brand vibe words: ${brandVibeWords}.`,
       "Return valid JSON matching this schema exactly:",
-      '{ "mode": string, "platformRecommendations": [{ "platform": string, "priority": "primary"|"secondary"|"optional", "strategy": string, "postingFrequency": string, "contentMix": string[] }], "paidAdsAdvice": { "budget": string, "platforms": string[], "targeting": string, "expectedResults": string }, "hashtags": { "branded": string[], "industry": string[], "trending": string[] }, "localMediaPlan": { "outlets": [{ "name": string, "type": string, "pitchAngle": string }], "events": string[], "partnerships": string[] }, "nationalMediaPlan": { "outlets": [{ "name": string, "type": string, "pitchAngle": string }], "prAngles": string[], "pressReleaseTopics": string[] }, "brandingToolkit": { "voiceTone": string, "keyMessages": string[], "visualGuidelines": string, "contentPillars": string[] } }',
+      '{ "mode": string, "platformRecommendations": [{ "platform": string, "priority": "primary"|"secondary"|"optional", "strategy": string, "postingFrequency": string, "contentMix": string[] }], "paidAdsAdvice": { "budget": string, "platforms": string[], "targeting": string, "expectedResults": string }, "hashtags": { "branded": string[], "industry": string[], "trending": string[] }, "localMediaPlan": { "outlets": [{ "name": string, "type": string, "pitchAngle": string }], "events": string[], "partnerships": string[] }, "nationalMediaPlan": { "outlets": [{ "name": string, "type": string, "pitchAngle": string }], "prAngles": string[], "pressReleaseTopics": string[] }, "brandingToolkit": { "voiceTone": string, "keyMessages": string[], "visualGuidelines": string, "contentPillars": string[], "brandKit": { "primaryColors": string[], "fontRecommendations": string[], "visualStyle": string } } }',
       "Tailor the plan to the business industry, stage, and geographic focus.",
       mode === "LOCAL" ? "Focus primarily on the local media plan; national can be minimal." : "",
       mode === "NATIONAL" ? "Focus primarily on the national media plan; local can be minimal." : "",
+      "Include a brandKit section in brandingToolkit with color/font/style recommendations based on the brand vibe words.",
     ].filter(Boolean).join("\n");
 
     const user = `Business Plan:\n${planSummary(plan)}\n\nGenerate the Social Media & PR plan as JSON.`;
@@ -242,13 +260,16 @@ export class StartupGarageService {
 
   async generateCanvaTemplate(plan: any): Promise<object> {
     const openai = this.requireAI();
+    const brandVibeWords = plan.brandAssets?.brandVibeWords?.length ? plan.brandAssets.brandVibeWords.join(", ") : "professional, modern";
     const system = [
       "You are a graphic design expert specializing in Canva templates for social media.",
+      `Brand vibe words: ${brandVibeWords}.`,
       "Generate Instagram Canva-ready template specifications for the startup.",
       "Return valid JSON matching this schema exactly:",
-      '{ "templates": [{ "name": string, "size": string, "grid": { "columns": number, "rows": number, "gutterPx": number }, "components": [{ "type": string, "position": string, "styling": string }], "typeSystem": { "headingFont": string, "bodyFont": string, "headingSizePt": number, "bodySizePt": number, "lineHeight": number }, "exportNotes": string, "imagePromptPattern": string }] }',
+      '{ "brandKit": { "primaryColors": string[], "accentColors": string[], "fonts": { "heading": string, "body": string }, "visualStyle": string }, "templates": [{ "name": string, "size": string, "grid": { "columns": number, "rows": number, "gutterPx": number }, "components": [{ "type": string, "position": string, "styling": string }], "typeSystem": { "headingFont": string, "bodyFont": string, "headingSizePt": number, "bodySizePt": number, "lineHeight": number }, "exportNotes": string, "imagePromptPattern": string }] }',
       "Generate 4-6 templates covering: feed post, story, carousel slide, highlight cover, reel cover, and promotional banner.",
-      "Use brand-appropriate colors and modern design principles.",
+      "Use brand-appropriate colors and modern design principles that match the brand vibe words.",
+      "The brandKit should extract/recommend colors and fonts based on the brand identity.",
       "The imagePromptPattern should be a reusable AI prompt template for generating visuals.",
     ].join("\n");
 
@@ -261,13 +282,16 @@ export class StartupGarageService {
     const system = [
       "You are a startup execution coach. Create a 30/60/90 day action plan for launching and growing this business.",
       "Return valid JSON matching this schema exactly:",
-      '{ "days30": [{ "title": string, "owner": string, "details": string, "definitionOfDone": string }], "days60": [{ "title": string, "owner": string, "details": string, "definitionOfDone": string }], "days90": [{ "title": string, "owner": string, "details": string, "definitionOfDone": string }] }',
+      '{ "days30": [{ "title": string, "owner": string, "details": string, "definitionOfDone": string, "dependencies": string[], "links": string[] }], "days60": [{ "title": string, "owner": string, "details": string, "definitionOfDone": string, "dependencies": string[], "links": string[] }], "days90": [{ "title": string, "owner": string, "details": string, "definitionOfDone": string, "dependencies": string[], "links": string[] }] }',
       "Each phase should have 5-8 actionable items.",
       "Days 1-30: Foundation & launch prep (legal, branding, MVP, initial marketing).",
       "Days 31-60: Launch & early traction (go-live, first customers, feedback loops).",
       "Days 61-90: Growth & optimization (scaling, partnerships, metrics review).",
       'Owner should reference team roles (e.g., "Founder", "Marketing Lead", "Tech Lead").',
       "Definition of Done must be measurable and specific.",
+      "Dependencies should list which other items must complete first (by title).",
+      "Links can be empty arrays; they will be populated by the system when tasks are created.",
+      "These items will be converted into actual project tasks, so make them specific and actionable.",
     ].join("\n");
 
     const user = `Business Plan:\n${planSummary(plan)}\n\nGenerate the 30/60/90 day action plan as JSON.`;
