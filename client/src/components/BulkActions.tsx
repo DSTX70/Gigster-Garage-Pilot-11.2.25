@@ -243,7 +243,7 @@ export function BulkActions<T extends { id: string }>({
     }
   }, [batchProgress?.status]);
 
-  if (selectedItems.length === 0 && !showExport && !showImport) {
+  if (selectedItems.length === 0 && !showExport && !showImport && !showBulkEdit && !showDeleteConfirm) {
     return null;
   }
 
@@ -331,10 +331,13 @@ export function BulkActions<T extends { id: string }>({
       </Card>
 
       {/* Bulk Edit Dialog */}
-      <Dialog open={showBulkEdit} onOpenChange={setShowBulkEdit}>
+      <Dialog open={showBulkEdit} onOpenChange={(open) => {
+        setShowBulkEdit(open);
+        if (!open) setBulkEditData({});
+      }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Bulk Edit {selectedItems.length} Items</DialogTitle>
+            <DialogTitle>Bulk Edit {selectedItems.length} {entityType === 'tasks' ? 'Tasks' : entityType === 'projects' ? 'Projects' : 'Clients'}</DialogTitle>
             <DialogDescription>
               Only fill in the fields you want to update. Empty fields will be ignored.
             </DialogDescription>
@@ -344,9 +347,9 @@ export function BulkActions<T extends { id: string }>({
             {entityType === 'tasks' && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="status">Status</Label>
-                  <Select onValueChange={(value) => setBulkEditData(prev => ({ ...prev, status: value }))}>
-                    <SelectTrigger>
+                  <Label>Status</Label>
+                  <Select value={bulkEditData.status ?? undefined} onValueChange={(value) => setBulkEditData(prev => ({ ...prev, status: value }))}>
+                    <SelectTrigger data-testid="select-bulk-task-status">
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -360,9 +363,9 @@ export function BulkActions<T extends { id: string }>({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="priority">Priority</Label>
-                  <Select onValueChange={(value) => setBulkEditData(prev => ({ ...prev, priority: value }))}>
-                    <SelectTrigger>
+                  <Label>Priority</Label>
+                  <Select value={bulkEditData.priority ?? undefined} onValueChange={(value) => setBulkEditData(prev => ({ ...prev, priority: value }))}>
+                    <SelectTrigger data-testid="select-bulk-task-priority">
                       <SelectValue placeholder="Select priority" />
                     </SelectTrigger>
                     <SelectContent>
@@ -374,27 +377,47 @@ export function BulkActions<T extends { id: string }>({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="dueDate">Due Date</Label>
+                  <Label>Due Date</Label>
                   <Input
                     type="datetime-local"
+                    value={bulkEditData.dueDate ?? ''}
                     onChange={(e) => setBulkEditData(prev => ({ ...prev, dueDate: e.target.value }))}
+                    data-testid="input-bulk-task-duedate"
                   />
                 </div>
               </>
             )}
 
+            {entityType === 'projects' && (
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select value={bulkEditData.status ?? undefined} onValueChange={(value) => setBulkEditData(prev => ({ ...prev, status: value }))}>
+                  <SelectTrigger data-testid="select-bulk-project-status">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="on-hold">On Hold</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
+              <Label>Description</Label>
               <Textarea
                 placeholder="Update description..."
                 value={bulkEditData.description || ''}
                 onChange={(e) => setBulkEditData(prev => ({ ...prev, description: e.target.value }))}
+                data-testid="textarea-bulk-description"
               />
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowBulkEdit(false)}>
+            <Button variant="outline" onClick={() => { setShowBulkEdit(false); setBulkEditData({}); }}>
               Cancel
             </Button>
             <Button 
@@ -402,7 +425,7 @@ export function BulkActions<T extends { id: string }>({
               disabled={bulkEditMutation.isPending}
               data-testid="button-confirm-bulk-edit"
             >
-              Update {selectedItems.length} Items
+              {bulkEditMutation.isPending ? 'Updating...' : `Update ${selectedItems.length} Items`}
             </Button>
           </DialogFooter>
         </DialogContent>
