@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Play, Square, Clock, Settings } from "lucide-react";
+import { Play, Square, Clock, Settings, RotateCcw } from "lucide-react";
 import type { TimeLog, Task, Project } from "@shared/schema";
 
 // Helper function to format duration
@@ -28,6 +28,7 @@ export function TimerWidget() {
   const [description, setDescription] = useState<string>("");
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [lastStopped, setLastStopped] = useState<{ taskId?: string; projectId?: string; description?: string } | null>(null);
   
   const queryClient = useQueryClient();
   
@@ -86,13 +87,21 @@ export function TimerWidget() {
     mutationFn: async (timeLogId: string) => {
       return apiRequest("POST", "/api/timelogs/stop", { timeLogId });
     },
+    onMutate: () => {
+      if (activeTimer) {
+        setLastStopped({
+          taskId: activeTimer.taskId || undefined,
+          projectId: activeTimer.projectId || undefined,
+          description: activeTimer.description || undefined,
+        });
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/timelogs/active"] });
       queryClient.invalidateQueries({ queryKey: ["/api/timelogs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/productivity/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/streaks"] });
       setCurrentTime(0);
-      // Reset timer display to show "Timer Ready" state
     },
   });
 
@@ -107,6 +116,17 @@ export function TimerWidget() {
   const handleStopTimer = () => {
     if (activeTimer) {
       stopTimerMutation.mutate(activeTimer.id);
+    }
+  };
+
+  const handleContinueTimer = () => {
+    if (lastStopped) {
+      startTimerMutation.mutate({
+        taskId: lastStopped.taskId,
+        projectId: lastStopped.projectId,
+        description: lastStopped.description || "Working",
+      });
+      setLastStopped(null);
     }
   };
 
@@ -129,6 +149,13 @@ export function TimerWidget() {
                   </div>
                   <div className="text-xs text-orange-700" data-testid="timer-description">
                     {activeTimer.description || "Working on task"}
+                  </div>
+                </div>
+              ) : lastStopped ? (
+                <div>
+                  <div className="text-lg font-semibold text-orange-900">Timer Paused</div>
+                  <div className="text-xs text-orange-700 truncate max-w-[180px]">
+                    {lastStopped.description || "Working on task"}
                   </div>
                 </div>
               ) : (
@@ -154,6 +181,19 @@ export function TimerWidget() {
                 Stop
               </Button>
             ) : !timerLoading ? (
+              <>
+              {lastStopped && (
+                <Button
+                  size="sm"
+                  onClick={handleContinueTimer}
+                  disabled={startTimerMutation.isPending}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  data-testid="button-continue-timer"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Continue
+                </Button>
+              )}
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogTrigger asChild>
                   <Button
@@ -162,7 +202,7 @@ export function TimerWidget() {
                     data-testid="button-start-timer"
                   >
                     <Play className="h-4 w-4" />
-                    Start
+                    {lastStopped ? "New" : "Start"}
                   </Button>
                 </DialogTrigger>
                 
@@ -243,6 +283,7 @@ export function TimerWidget() {
                   </div>
                 </DialogContent>
               </Dialog>
+              </>
             ) : null}
             
             <Button
